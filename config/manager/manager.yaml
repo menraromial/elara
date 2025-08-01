@@ -1,0 +1,37 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: elara-controller-manager
+  namespace: elara-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elara-controller-manager
+  namespace: elara-system
+  labels:
+    control-plane: controller-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  template:
+    metadata:
+      labels:
+        control-plane: controller-manager
+    spec:
+      serviceAccountName: elara-controller-manager
+      containers:
+      - name: manager
+        image: ghrc.io/menraromial/elara-controller:v0.1.0 
+        args:
+        - --leader-elect
+        resources:
+          limits:
+            cpu: 200m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 64Mi

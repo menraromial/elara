@@ -1,0 +1,22 @@
+apiVersion: greenops.elara.dev/v1
+kind: ElaraPolicy
+metadata:
+  name: cluster-policy
+spec:
+  deployments:
+    - name: frontend
+      namespace: default
+      minReplicas: 1
+      maxReplicas: 10
+      weight: "0.6" # Must be a string for resource.Quantity
+      group: web-group
+    - name: backend
+      namespace: default
+      minReplicas: 2
+      maxReplicas: 8
+      weight: "0.4"
+      group: web-group
+    - name: database
+      namespace: default
+      minReplicas: 1
+      maxReplicas: 3
