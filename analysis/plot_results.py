@@ -158,6 +158,150 @@ def plot_plateau_response(filename):
     print(f"SUCCESS: Saved plot to {output_path}")
     plt.close()
 
+
+def plot_solar_response(filename):
+    """
+    Plots the system's response to a simulated solar power curve.
+    """
+    print(f"--- Plotting Solar Simulation Response from {filename} ---")
+    try:
+        df = pd.read_csv(filename)
+    except FileNotFoundError:
+        print(f"Error: Data file not found at {filename}")
+        return
+
+    optimal_power = df['OptimalPower'].iloc[0]
+    optimal_replicas = df['ActualReplicas'].max() # Optimal replicas is the peak
+
+    fig, ax1 = plt.subplots(figsize=(16, 9))
+
+    # AXIS 1: REPLICAS (Left Y-axis)
+    color_replicas = 'royalblue'
+    ax1.set_xlabel('Time Step (Simulated 24-hour cycle)', fontsize=14)
+    ax1.set_ylabel('Total Number of Replicas', color=color_replicas, fontsize=14)
+    ax1.plot(df['Step'], df['ActualReplicas'], '.-', color=color_replicas, markersize=8, label='Actual Replicas (Observed State)', zorder=10)
+    ax1.plot(df['Step'], df['TargetReplicas'], '--', color='black', alpha=0.7, label='Target Replicas (Ideal State)')
+    ax1.tick_params(axis='y', labelcolor=color_replicas)
+    ax1.axhline(optimal_replicas, color=color_replicas, linestyle=':', linewidth=2, label=f'Peak Replicas ({int(optimal_replicas)})')
+    ax1.set_ylim(bottom=0)
+
+    # AXIS 2: POWER (Right Y-axis)
+    ax2 = ax1.twinx()
+    color_power = 'gold'
+    ax2.set_ylabel('Available Solar Power (kW)', color=color_power, fontsize=14)
+    ax2.plot(df['Step'], df['CurrentPower'], '.-', color=color_power, markersize=8, label='Current Power (Signal)')
+    ax2.fill_between(df['Step'], 0, df['CurrentPower'], color=color_power, alpha=0.2)
+    ax2.tick_params(axis='y', labelcolor=color_power)
+    ax2.axhline(optimal_power, color='gray', linestyle=':', linewidth=2, label=f'Optimal Power ({int(optimal_power)} kW)')
+    ax2.set_ylim(bottom=0, top=optimal_power * 1.1)
+
+    # Final Touches
+    plt.title('System Response to Simulated Solar Power Curve with Fluctuations', fontsize=18, pad=20)
+    fig.tight_layout()
+    lines, labels = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax2.legend(lines + lines2, labels + labels2, loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=3, fontsize=11)
+    
+    output_path = os.path.join(PLOTS_DIR, "solar_response_plot.png")
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    print(f"SUCCESS: Saved plot to {output_path}")
+    plt.close()
+
+def plot_stability_response(filename):
+    """
+    Plots the system's response to a high-frequency noisy power signal.
+    This visualizes the controller's stability and filtering capability.
+    """
+    print(f"--- Plotting Stability Response from {filename} ---")
+    try:
+        df = pd.read_csv(filename)
+    except FileNotFoundError:
+        print(f"Error: Data file not found at {filename}")
+        return
+
+    # Calculate the number of scaling actions
+    # A scaling action is any change in the total number of actual replicas
+    df['ReplicaChange'] = df['ActualReplicas'].diff().fillna(0.0)
+    scaling_actions = len(df[df['ReplicaChange'] != 0])
+    total_steps = len(df)
+
+    fig, ax1 = plt.subplots(figsize=(16, 9))
+
+    # AXIS 1: REPLICAS (Left Y-axis)
+    color_replicas = 'royalblue'
+    ax1.set_xlabel('Time Step', fontsize=14)
+    ax1.set_ylabel('Total Number of Replicas', color=color_replicas, fontsize=14)
+    # Use a step plot for replicas to clearly show when changes occur
+    ax1.step(df['Step'], df['ActualReplicas'], where='post', color=color_replicas, linewidth=2.5, label='Actual Replicas (Observed State)', zorder=10)
+    ax1.tick_params(axis='y', labelcolor=color_replicas)
+    ax1.set_ylim(bottom=0)
+
+    # AXIS 2: POWER (Right Y-axis)
+    ax2 = ax1.twinx()
+    color_power = 'darkorange'
+    ax2.set_ylabel('Available Power (kW)', color=color_power, fontsize=14)
+    ax2.plot(df['Step'], df['CurrentPower'], '.-', color=color_power, alpha=0.6, label='Current Power (Noisy Signal)')
+    ax2.tick_params(axis='y', labelcolor=color_power)
+    ax2.set_ylim(bottom=0)
+
+    # Final Touches
+    title = (f"System Stability Under Noisy Signal\n"
+             f"Result: {scaling_actions} Scaling Actions in Response to {total_steps} Signal Changes")
+    plt.title(title, fontsize=18, pad=20)
+    fig.tight_layout(rect=[0, 0.1, 1, 1]) # Adjust layout to make room for legend
+    lines, labels = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax2.legend(lines + lines2, labels + labels2, loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=2, fontsize=11)
+    
+    output_path = os.path.join(PLOTS_DIR, "stability_response_plot.png")
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    print(f"SUCCESS: Saved plot to {output_path}")
+    plt.close()
+
+
+def plot_weighting_effectiveness(filename):
+    """
+    Plots the diverging scaling paths of a high-weight vs. a low-weight service.
+    """
+    print(f"--- Plotting Weighting Effectiveness from {filename} ---")
+    try:
+        df = pd.read_csv(filename)
+    except FileNotFoundError:
+        print(f"Error: Data file not found at {filename}")
+        return
+
+    fig, ax1 = plt.subplots(figsize=(14, 8))
+
+    # AXIS 1: REPLICAS (Left Y-axis)
+    ax1.set_xlabel('Experiment Step (Power Decreasing ->)', fontsize=14)
+    ax1.set_ylabel('Number of Replicas', fontsize=14)
+    ax1.plot(df['Step'], df['ReplicasCritical'], '.-', color='forestgreen', markersize=10, linewidth=2.5, label='Critical Service (Weight 9.0)')
+    ax1.plot(df['Step'], df['ReplicasBestEffort'], '.--', color='orangered', markersize=10, linewidth=2.5, label='Best-Effort Service (Weight 1.0)')
+    ax1.tick_params(axis='y')
+    ax1.set_ylim(bottom=0)
+    ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+    # AXIS 2: POWER (Right Y-axis)
+    ax2 = ax1.twinx()
+    color_power = 'gray'
+    ax2.set_ylabel('Available Power (kW)', color=color_power, fontsize=14)
+    ax2.plot(df['Step'], df['CurrentPower'], ':', color=color_power, linewidth=2, label='Current Power (Signal)')
+    ax2.tick_params(axis='y', labelcolor=color_power)
+    ax2.set_ylim(bottom=0)
+
+    # Final Touches
+    plt.title('Weighting Effectiveness: Service Prioritization Under Power Reduction', fontsize=18, pad=20)
+    fig.tight_layout()
+    lines, labels = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax2.legend(lines + lines2, labels + labels2, loc='upper right', fontsize=11)
+    
+    output_path = os.path.join(PLOTS_DIR, "weighting_effectiveness_plot.png")
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    print(f"SUCCESS: Saved plot to {output_path}")
+    plt.close()
+
+
 def main():
     """
     Main function to find result files and generate plots.
@@ -185,12 +329,21 @@ def main():
         elif "plateau_error_data.csv" in filename:
             plot_plateau_response(full_path)
             found_files = True
-        if "full_ramp_data.csv" in filename:
+        elif "full_ramp_data.csv" in filename:
             plot_replication_error_with_power(full_path, img_name="full_ramp_plot")
             found_files = True
         elif "ramp_convergence_data.csv" in filename:
             found_files = True
             plot_convergence_time(full_path)
+        elif "solar_data.csv" in filename:
+            plot_solar_response(full_path)
+            found_files = True
+        elif "stability_data.csv" in filename:
+            plot_stability_response(full_path)
+            found_files = True
+        elif "weighting_data.csv" in filename:
+            plot_weighting_effectiveness(full_path)
+            found_files = True
 
     if not found_files:
         print("\nWARNING: No result CSV files found in the results directory.")

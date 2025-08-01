@@ -184,6 +184,41 @@ test-exp-full-ramp: manifests generate test-env
 	@echo "+++ Running Experiment: Full-Cycle Ramp Test..."
 	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Full-Cycle Ramp Test"
 
+## plot-solar: Run the solar simulation and generate the final plot.
+.PHONY: plot-solar
+plot-solar: test-exp-solar
+	@echo "+++ Solar experiment finished. Generating plot..."
+	@python3 analysis/plot_results.py
+
+## test-exp-solar: Run the complex, solar simulation test.
+.PHONY: test-exp-solar
+test-exp-solar: manifests generate test-env
+	@echo "+++ Running Experiment: Solar Simulation Test..."
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Solar Simulation Test"
+
+## plot-stability: Run the stability experiment and generate the final plot.
+.PHONY: plot-stability
+plot-stability: test-exp-stability
+	@echo "+++ Stability experiment finished. Generating plot..."
+	@python3 analysis/plot_results.py
+
+## test-exp-stability: Run the high-frequency noise stability test.
+.PHONY: test-exp-stability
+test-exp-stability: manifests generate test-env
+	@echo "+++ Running Experiment: High-Frequency Noise Stability Test..."
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Stability Test"
+
+## plot-weighting: Run the weighting experiment and generate the final plot.
+.PHONY: plot-weighting
+plot-weighting: test-exp-weighting
+	@echo "+++ Weighting experiment finished. Generating plot..."
+	@python3 analysis/plot_results.py
+
+## test-exp-weighting: Run the weighting effectiveness test.
+.PHONY: test-exp-weighting
+test-exp-weighting: manifests generate test-env
+	@echo "+++ Running Experiment: Weighting Effectiveness Test..."
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Weighting Effectiveness Test"
 
 
 

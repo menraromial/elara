@@ -277,10 +277,31 @@ func (s *DeclarativeScaler) CalculateTargetState(reductionPercentage float64) []
 				totalWeight += m.Weight.AsApproximateFloat64()
 			}
 
+			// The reduction share is now inversely proportional to the priority weight.
+			var reductionShares []float64
+			var totalReductionShare float64
+
+			// In a group with a single member, it gets 100% of the reduction.
+			if len(members) <= 1 && totalWeight > 0 {
+				totalReductionShare = totalWeight
+				for _, m := range members {
+					reductionShares = append(reductionShares, m.Weight.AsApproximateFloat64())
+				}
+			} else {
+				// For multiple members, use the inverse logic.
+				for _, m := range members {
+					// A service with a high priority weight gets a low reduction share.
+					// We add a small epsilon (1) to handle weights of 0.
+					share := totalWeight - m.Weight.AsApproximateFloat64() + 1
+					reductionShares = append(reductionShares, share)
+					totalReductionShare += share
+				}
+			}
+
 			memberShares := make([]float64, len(members))
-			for j, m := range members {
-				if totalWeight > 0 {
-					memberShares[j] = float64(alloc) * m.Weight.AsApproximateFloat64() / totalWeight
+			for j := range members {
+				if totalReductionShare > 0 {
+					memberShares[j] = float64(alloc) * reductionShares[j] / totalReductionShare
 				}
 			}
 			memberAllocations := largestRemainderMethod(memberShares, alloc)
