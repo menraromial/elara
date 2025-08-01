@@ -115,10 +115,16 @@ test-env:
 	@go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 	@$(ENVTEST) use -p path --bin-dir $(shell pwd)/testbin 1.28.3
 
-## test: Run controller E2E tests.
+## test: Run the fast, functional E2E tests.
 .PHONY: test
 test: manifests generate test-env
 	@echo "+++ Running E2E tests..."
 	# --- THIS IS THE CORRECTED LINE ---
 	# Use `setup-envtest` to find the correct asset path and export it.
 	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v
+
+## test-perf: Run the long-running performance/scale E2E tests.
+.PHONY: test-perf
+test-perf: manifests generate test-env
+	@echo "+++ Running performance E2E tests (this may take a minute)..."
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller Performance E2E"
