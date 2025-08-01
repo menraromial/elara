@@ -17,7 +17,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
 RESULTS_DIR = os.path.join(PROJECT_ROOT, "results")
 PLOTS_DIR = os.path.join(SCRIPT_DIR, "plots") # Create plots dir inside 'analysis'
 
-def plot_replication_error_with_power(filename):
+def plot_replication_error_with_power(filename, img_name="replication_error_plot"):
     """
     Plots Target vs. Actual Replicas alongside the Power Signal on a dual-axis graph.
     This provides a powerful visualization for publications.
@@ -65,7 +65,7 @@ def plot_replication_error_with_power(filename):
     lines2, labels2 = ax2.get_legend_handles_labels()
     ax2.legend(lines + lines2, labels + labels2, loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=3, fontsize=11)
 
-    output_path = os.path.join(PLOTS_DIR, "power_vs_replicas_plot.png")
+    output_path = os.path.join(PLOTS_DIR, f"{img_name}.png")
     plt.savefig(output_path, dpi=300, bbox_inches='tight') # Use bbox_inches to fit the legend
     print(f"SUCCESS: Saved plot to {output_path}")
     plt.close()
@@ -186,7 +186,7 @@ def main():
             plot_plateau_response(full_path)
             found_files = True
         if "full_ramp_data.csv" in filename:
-            plot_replication_error_with_power(full_path)
+            plot_replication_error_with_power(full_path, img_name="full_ramp_plot")
             found_files = True
         elif "ramp_convergence_data.csv" in filename:
             found_files = True

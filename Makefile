@@ -155,7 +155,7 @@ test-exp-stress: manifests generate test-env
 
 ## plot: Run all experiments and generate publication-ready plots.
 .PHONY: plot
-plot: test-exp-ramp test-exp-ramp-conv
+plot: test-exp-ramp test-exp-ramp-conv test-exp-plateau test-exp-full-ramp
 	@echo "+++ All experiments finished. Generating plots..."
 	@python3 analysis/plot_results.py
 
