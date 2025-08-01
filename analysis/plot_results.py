@@ -141,7 +141,7 @@ def plot_plateau_response(filename):
     color_power = 'seagreen'
     ax2.set_ylabel('Available Power (kW)', color=color_power, fontsize=14)
     # Use plt.step for a plateau visualization
-    ax2.step(df['Step'], df['CurrentPower'], where='post', color=color_power, linewidth=2.5, label='Current Power (Signal)')
+    ax2.step(df['Step'], df['CurrentPower'], '^-', color=color_power, alpha=0.7, label='Current Power (Signal)')
     ax2.tick_params(axis='y', labelcolor=color_power)
     ax2.axhline(optimal_power, color=color_power, linestyle=':', linewidth=2, label=f'Optimal Power ({int(optimal_power)} kW)')
     ax2.set_ylim(bottom=0, top=optimal_power * 1.1)
@@ -182,8 +182,11 @@ def main():
         if "ramp_error_data.csv" in filename:
             found_files = True
             plot_replication_error_with_power(full_path)
-        if "plateau_error_data.csv" in filename:
+        elif "plateau_error_data.csv" in filename:
             plot_plateau_response(full_path)
+            found_files = True
+        if "full_ramp_data.csv" in filename:
+            plot_replication_error_with_power(full_path)
             found_files = True
         elif "ramp_convergence_data.csv" in filename:
             found_files = True

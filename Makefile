@@ -171,3 +171,20 @@ plot-plateau: test-exp-plateau
 test-exp-plateau: manifests generate test-env
 	@echo "+++ Running Experiment: Power Plateau Test..."
 	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Complex Plateau Test"
+
+## plot-full-ramp: Run the complete ramp-down/ramp-up experiment and generate the plot.
+.PHONY: plot-full-ramp
+plot-full-ramp: test-exp-full-ramp
+	@echo "+++ Full ramp experiment finished. Generating plot..."
+	@python3 analysis/plot_results.py
+
+## test-exp-full-ramp: Run the complex, full-cycle Ramp Test experiment.
+.PHONY: test-exp-full-ramp
+test-exp-full-ramp: manifests generate test-env
+	@echo "+++ Running Experiment: Full-Cycle Ramp Test..."
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Full-Cycle Ramp Test"
+
+
+
+
+
