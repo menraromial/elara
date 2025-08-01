@@ -2,8 +2,8 @@
 # Elara: Energy-Aware Kubernetes Controller
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Go Report Card](https://goreportcard.com/badge/github.com/your-username/elara)](https://goreportcard.com/report/github.com/your-username/elara)
-[![CI/CD Status](https://img.shields.io/badge/CI%2FCD-TBD-lightgrey)](https://github.com/your-username/elara/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/menraromial/elara)](https://goreportcard.com/report/github.com/menraromial/elara)
+[![CI/CD Status](https://img.shields.io/badge/CI%2FCD-TBD-lightgrey)](https://github.com/menraromial/elara/actions)
 
 **Elara is a Kubernetes native controller designed to align application scaling with energy availability. In dynamic environments where power supply can fluctuate (e.g., due to renewable sources or cost signals), Elara ensures that your workloads adapt by proportionally scaling down deployment replicas during power dips and restoring them to optimal levels when power is stable.**
 
@@ -72,7 +72,7 @@ The core idea is to treat the total number of replicas in your managed deploymen
 
 1.  **Clone the Repository**
     ```sh
-    git clone https://github.com/your-username/elara.git
+    git clone https://github.com/menraromial/elara.git
     cd elara
     ```
 
