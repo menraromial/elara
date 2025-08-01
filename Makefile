@@ -128,3 +128,21 @@ test: manifests generate test-env
 test-perf: manifests generate test-env
 	@echo "+++ Running performance E2E tests (this may take a minute)..."
 	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller Performance E2E"
+
+## test-exp-step: Run the Step Function experiment to measure convergence time.
+.PHONY: test-exp-step
+test-exp-step: manifests generate test-env
+	@echo "+++ Running Experiment: Step Function Test..."
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Step Function Test"
+
+## test-exp-ramp: Run the Ramp Test experiment to measure replication error.
+.PHONY: test-exp-ramp
+test-exp-ramp: manifests generate test-env
+	@echo "+++ Running Experiment: Ramp Test..."
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Ramp Test"
+
+## test-exp-ramp-conv: Run the Ramp Convergence experiment to measure reactivity.
+.PHONY: test-exp-ramp-conv
+test-exp-ramp-conv: manifests generate test-env
+	@echo "+++ Running Experiment: Ramp Convergence Test (Reactivity)..."
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Ramp Convergence Test"

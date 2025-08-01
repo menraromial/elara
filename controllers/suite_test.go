@@ -18,15 +18,19 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
-
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -111,3 +115,49 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
+
+
+// cleanUpTestResources performs a robust, manual cleanup of all resources created
+// during a test. It explicitly deletes all namespaced resources before deleting
+// the namespace itself to prevent hangs in the envtest environment.
+func cleanUpTestResources(ctx context.Context, namespaceName string, policyName string, nodeNames ...string) {
+	By("Cleaning up test resources")
+
+	// Step 1: Delete the ElaraPolicy first to stop the controller from reconciling.
+	policy := &greenopsv1.ElaraPolicy{ObjectMeta: metav1.ObjectMeta{Name: policyName}}
+	Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, policy))).Should(Succeed())
+
+	// Step 2: Delete any cluster-scoped resources like Nodes.
+	for _, nodeName := range nodeNames {
+		node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}}
+		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, node))).Should(Succeed())
+	}
+
+	// Step 3: Explicitly delete all deployments within the test namespace.
+	By(fmt.Sprintf("Explicitly deleting all deployments in namespace '%s'", namespaceName))
+	deploymentList := &appsv1.DeploymentList{}
+	Expect(k8sClient.List(ctx, deploymentList, client.InNamespace(namespaceName))).Should(Succeed())
+	for _, dep := range deploymentList.Items {
+		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &dep))).Should(Succeed())
+	}
+
+	// Step 4: Wait for all deployments to be fully gone. This is CRITICAL.
+	By(fmt.Sprintf("Waiting for deployments in namespace '%s' to be deleted", namespaceName))
+	Eventually(func() (int, error) {
+		err := k8sClient.List(ctx, deploymentList, client.InNamespace(namespaceName))
+		if err != nil { return -1, err }
+		return len(deploymentList.Items), nil
+	}, time.Minute, time.Second).Should(BeZero(), "All deployments should be deleted")
+
+	// Step 5: Now that the namespace is empty, delete it.
+	By(fmt.Sprintf("Deleting test namespace '%s'", namespaceName))
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
+	Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, ns))).Should(Succeed())
+
+	// Step 6: Wait for the namespace to be fully deleted. This will now succeed quickly.
+	By(fmt.Sprintf("Waiting for namespace '%s' to be deleted", namespaceName))
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, types.NamespacedName{Name: namespaceName}, ns)
+		return errors.IsNotFound(err)
+	}, time.Minute, time.Second).Should(BeTrue(), "The test namespace should be fully deleted")
+}

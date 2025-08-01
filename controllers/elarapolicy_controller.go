@@ -9,27 +9,27 @@ import (
 	"time"
 
 	// IMPORTANT: Ensure this path matches your module name in go.mod
-	//"elara/api/v1" 
+	//"elara/api/v1"
 	greenopsv1 "elara/api/v1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // Constants for the node labels used to determine power.
 const (
-	optimalPowerLabel = "rapl/optimal"
-	currentPowerLabel = "rapl/current"
+	optimalPowerLabel   = "rapl/optimal"
+	currentPowerLabel   = "rapl/current"
 	masterNodeRoleLabel = "node-role.kubernetes.io/master"
 )
 
@@ -127,7 +127,7 @@ func (r *ElaraPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 func (r *ElaraPolicyReconciler) calculateClusterPower(ctx context.Context) (optimal float64, current float64, err error) {
 	logger := log.FromContext(ctx)
 	nodeList := &corev1.NodeList{}
-	
+
 	requirement, err := labels.NewRequirement(masterNodeRoleLabel, selection.DoesNotExist, nil)
 	if err != nil {
 		// This should not happen for a static requirement.
@@ -166,13 +166,12 @@ func (r *ElaraPolicyReconciler) calculateClusterPower(ctx context.Context) (opti
 			logger.V(1).Info("Invalid 'rapl/current' label on node, skipping.", "node", node.Name, "value", currentStr)
 			continue
 		}
-		
+
 		optimal += opt
 		current += cur
 	}
 	return optimal, current, nil
 }
-
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ElaraPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -211,8 +210,6 @@ func (r *ElaraPolicyReconciler) mapNodeChangesToPolicy(ctx context.Context, obj 
 	return requests
 }
 
-
-
 // CalculateTargetState computes the final state of all deployments based on the current power reduction.
 func (s *DeclarativeScaler) CalculateTargetState(reductionPercentage float64) []TargetState {
 	// If power is optimal, return max replicas.
@@ -226,7 +223,7 @@ func (s *DeclarativeScaler) CalculateTargetState(reductionPercentage float64) []
 		totalMaxReplicas += int(d.MaxReplicas)
 	}
 	globalReductionTarget := int(math.Ceil(float64(totalMaxReplicas) * reductionPercentage))
-	
+
 	// Step 2: Distribute reduction among entities (groups and independents).
 	// This part is complex and must be exactly right.
 
@@ -239,14 +236,19 @@ func (s *DeclarativeScaler) CalculateTargetState(reductionPercentage float64) []
 			independent = append(independent, d)
 		}
 	}
-	
-	type entityInfo struct { name string; maxPotential int }
+
+	type entityInfo struct {
+		name         string
+		maxPotential int
+	}
 	var entities []entityInfo
 	totalEntityPotential := 0
-	
+
 	for name, members := range groups {
 		potential := 0
-		for _, m := range members { potential += int(m.MaxReplicas) }
+		for _, m := range members {
+			potential += int(m.MaxReplicas)
+		}
 		entities = append(entities, entityInfo{name: name, maxPotential: potential})
 		totalEntityPotential += potential
 	}
@@ -254,7 +256,7 @@ func (s *DeclarativeScaler) CalculateTargetState(reductionPercentage float64) []
 		entities = append(entities, entityInfo{name: d.Name, maxPotential: int(d.MaxReplicas)})
 		totalEntityPotential += int(d.MaxReplicas)
 	}
-	
+
 	entityShares := make([]float64, len(entities))
 	for i, e := range entities {
 		if totalEntityPotential > 0 {
@@ -262,17 +264,19 @@ func (s *DeclarativeScaler) CalculateTargetState(reductionPercentage float64) []
 		}
 	}
 	entityAllocations := largestRemainderMethod(entityShares, globalReductionTarget)
-	
+
 	// Step 3: Calculate desired reductions for each individual deployment.
 	desiredReductions := make(map[string]int) // key: namespace/name
-	
+
 	for i, e := range entities {
 		alloc := entityAllocations[i]
 		members, isGroup := groups[e.name]
 		if isGroup {
 			totalWeight := 0.0
-			for _, m := range members { totalWeight += m.Weight.AsApproximateFloat64() }
-			
+			for _, m := range members {
+				totalWeight += m.Weight.AsApproximateFloat64()
+			}
+
 			memberShares := make([]float64, len(members))
 			for j, m := range members {
 				if totalWeight > 0 {
@@ -295,21 +299,21 @@ func (s *DeclarativeScaler) CalculateTargetState(reductionPercentage float64) []
 			}
 		}
 	}
-	
+
 	// Step 4: Apply minReplicas constraints and calculate initial deficit.
 	finalReductions := make(map[string]int)
 	totalDeficit := 0
-	
+
 	for _, d := range s.Deployments {
 		key := fmt.Sprintf("%s/%s", d.Namespace, d.Name)
 		maxPossibleReduction := int(d.MaxReplicas - d.MinReplicas)
 		desired := desiredReductions[key]
-		
+
 		actualReduction := min(desired, maxPossibleReduction)
 		finalReductions[key] = actualReduction
 		totalDeficit += desired - actualReduction
 	}
-	
+
 	// Step 5: Redistribute deficit.
 	for totalDeficit > 0 {
 		type donorInfo struct {
@@ -331,14 +335,14 @@ func (s *DeclarativeScaler) CalculateTargetState(reductionPercentage float64) []
 			log.Log.V(0).Info("Warning: Could not redistribute remaining deficit", "deficit", totalDeficit)
 			break
 		}
-		
+
 		sort.Slice(donors, func(i, j int) bool { return donors[i].margin > donors[j].margin })
-		
+
 		bestDonorKey := donors[0].key
 		finalReductions[bestDonorKey]++
 		totalDeficit--
 	}
-	
+
 	// Step 6: Calculate final replica counts.
 	finalStates := make([]TargetState, len(s.Deployments))
 	for i, d := range s.Deployments {
@@ -368,12 +372,19 @@ func largestRemainderMethod(shares []float64, totalInt int) []int {
 	}
 
 	currentTotal := 0
-	for _, p := range integerParts { currentTotal += p }
+	for _, p := range integerParts {
+		currentTotal += p
+	}
 	remaining := totalInt - currentTotal
 
-	type remainderItem struct{ index int; remainder float64 }
+	type remainderItem struct {
+		index     int
+		remainder float64
+	}
 	remainderItems := make([]remainderItem, len(remainders))
-	for i, r := range remainders { remainderItems[i] = remainderItem{index: i, remainder: r} }
+	for i, r := range remainders {
+		remainderItems[i] = remainderItem{index: i, remainder: r}
+	}
 
 	sort.Slice(remainderItems, func(i, j int) bool { return remainderItems[i].remainder > remainderItems[j].remainder })
 
@@ -385,6 +396,8 @@ func largestRemainderMethod(shares []float64, totalInt int) []int {
 
 // min is a helper function to find the minimum of two integers.
 func min(a, b int) int {
-	if a < b { return a }
+	if a < b {
+		return a
+	}
 	return b
 }
