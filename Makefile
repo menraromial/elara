@@ -13,6 +13,8 @@ endif
 # Tool Binaries
 CONTROLLER_GEN ?= $(GOBIN)/controller-gen
 KUSTOMIZE ?= $(GOBIN)/kustomize
+ENVTEST ?= $(GOBIN)/setup-envtest
+
 
 # Target to download controller-gen if not installed
 .PHONY: controller-gen
@@ -100,3 +102,23 @@ undeploy: kustomize
 	@echo "+++ Undeploying controller from the cluster..."
 	@$(KUSTOMIZE) build config/default | kubectl delete -f -
 	@$(KUSTOMIZE) build config/default | kubectl delete -f -
+
+
+# ==========================================================================================
+#  Testing Targets
+# ==========================================================================================
+
+## test-env: Download envtest-setup binaries if not already present.
+.PHONY: test-env
+test-env:
+	@echo "+++ Setting up test environment..."
+	@go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	@$(ENVTEST) use -p path --bin-dir $(shell pwd)/testbin 1.28.3
+
+## test: Run controller E2E tests.
+.PHONY: test
+test: manifests generate test-env
+	@echo "+++ Running E2E tests..."
+	# --- THIS IS THE CORRECTED LINE ---
+	# Use `setup-envtest` to find the correct asset path and export it.
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v

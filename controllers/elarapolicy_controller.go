@@ -22,6 +22,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // Constants for the node labels used to determine power.
@@ -176,31 +178,60 @@ func (r *ElaraPolicyReconciler) calculateClusterPower(ctx context.Context) (opti
 func (r *ElaraPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&greenopsv1.ElaraPolicy{}).
-		// Optionally, watch Nodes for label changes to trigger reconciliation faster.
-		// For this prototype, periodic reconciliation is sufficient and simpler.
-		// Watches(&source.Kind{Type: &corev1.Node{}}, &handler.EnqueueRequestForObject{}).
+		// Add a Watch for Node objects.
+		// Any change to a Node will trigger a reconciliation of ALL ElaraPolicy objects.
+		// Since we expect only one policy, this effectively wakes up the controller.
+		Watches(
+			&corev1.Node{},
+			handler.EnqueueRequestsFromMapFunc(r.mapNodeChangesToPolicy),
+		).
 		Complete(r)
+}
+
+// mapNodeChangesToPolicy is a mapping function that triggers a reconciliation
+// for all ElaraPolicy objects whenever a Node changes.
+func (r *ElaraPolicyReconciler) mapNodeChangesToPolicy(ctx context.Context, obj client.Object) []reconcile.Request {
+	logger := log.FromContext(ctx)
+	logger.Info("Node change detected, triggering policy reconciliation", "node", obj.GetName())
+
+	policyList := &greenopsv1.ElaraPolicyList{}
+	if err := r.List(ctx, policyList); err != nil {
+		logger.Error(err, "Failed to list ElaraPolicies to trigger reconciliation")
+		return []reconcile.Request{}
+	}
+
+	requests := make([]reconcile.Request, len(policyList.Items))
+	for i, item := range policyList.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name: item.GetName(),
+			},
+		}
+	}
+	return requests
 }
 
 
 
 // CalculateTargetState computes the final state of all deployments based on the current power reduction.
 func (s *DeclarativeScaler) CalculateTargetState(reductionPercentage float64) []TargetState {
-	if reductionPercentage <= 5 {
-		// If power is optimal or higher, the target is the max replicas for all deployments.
+	// If power is optimal, return max replicas.
+	if reductionPercentage <= 0 {
 		return s.getOptimalState()
 	}
 
-	// Step 1: Calculate the global number of replicas to remove from the optimal state.
+	// Step 1: Calculate global reduction target from the absolute maximum.
 	totalMaxReplicas := 0
 	for _, d := range s.Deployments {
 		totalMaxReplicas += int(d.MaxReplicas)
 	}
 	globalReductionTarget := int(math.Ceil(float64(totalMaxReplicas) * reductionPercentage))
+	
+	// Step 2: Distribute reduction among entities (groups and independents).
+	// This part is complex and must be exactly right.
 
-	// Step 2: Distribute the reduction target among entities (groups and independent deployments).
 	groups := make(map[string][]greenopsv1.ManagedDeployment)
-	independent := []greenopsv1.ManagedDeployment{}
+	var independent []greenopsv1.ManagedDeployment
 	for _, d := range s.Deployments {
 		if d.Group != "" {
 			groups[d.Group] = append(groups[d.Group], d)
@@ -208,21 +239,22 @@ func (s *DeclarativeScaler) CalculateTargetState(reductionPercentage float64) []
 			independent = append(independent, d)
 		}
 	}
-
-	type entityInfo struct{ name string; maxPotential int; isGroup bool }
+	
+	type entityInfo struct { name string; maxPotential int }
 	var entities []entityInfo
 	totalEntityPotential := 0
+	
 	for name, members := range groups {
 		potential := 0
 		for _, m := range members { potential += int(m.MaxReplicas) }
-		entities = append(entities, entityInfo{name: name, maxPotential: potential, isGroup: true})
+		entities = append(entities, entityInfo{name: name, maxPotential: potential})
 		totalEntityPotential += potential
 	}
 	for _, d := range independent {
-		entities = append(entities, entityInfo{name: d.Name, maxPotential: int(d.MaxReplicas), isGroup: false})
+		entities = append(entities, entityInfo{name: d.Name, maxPotential: int(d.MaxReplicas)})
 		totalEntityPotential += int(d.MaxReplicas)
 	}
-
+	
 	entityShares := make([]float64, len(entities))
 	for i, e := range entities {
 		if totalEntityPotential > 0 {
@@ -230,13 +262,14 @@ func (s *DeclarativeScaler) CalculateTargetState(reductionPercentage float64) []
 		}
 	}
 	entityAllocations := largestRemainderMethod(entityShares, globalReductionTarget)
-
-	// Step 3: Distribute the reduction within each group based on weights.
+	
+	// Step 3: Calculate desired reductions for each individual deployment.
 	desiredReductions := make(map[string]int) // key: namespace/name
-	for i, alloc := range entityAllocations {
-		e := entities[i]
-		if e.isGroup {
-			members := groups[e.name]
+	
+	for i, e := range entities {
+		alloc := entityAllocations[i]
+		members, isGroup := groups[e.name]
+		if isGroup {
 			totalWeight := 0.0
 			for _, m := range members { totalWeight += m.Weight.AsApproximateFloat64() }
 			
@@ -252,6 +285,7 @@ func (s *DeclarativeScaler) CalculateTargetState(reductionPercentage float64) []
 				desiredReductions[key] = mAlloc
 			}
 		} else {
+			// Find the independent deployment
 			for _, d := range independent {
 				if d.Name == e.name {
 					key := fmt.Sprintf("%s/%s", d.Namespace, d.Name)
@@ -261,27 +295,35 @@ func (s *DeclarativeScaler) CalculateTargetState(reductionPercentage float64) []
 			}
 		}
 	}
-
-	// Step 4: Apply minReplicas constraints and handle the deficit.
+	
+	// Step 4: Apply minReplicas constraints and calculate initial deficit.
 	finalReductions := make(map[string]int)
 	totalDeficit := 0
+	
 	for _, d := range s.Deployments {
 		key := fmt.Sprintf("%s/%s", d.Namespace, d.Name)
-		maxPossibleReduction := d.MaxReplicas - d.MinReplicas
-		actualReduction := min(desiredReductions[key], int(maxPossibleReduction))
+		maxPossibleReduction := int(d.MaxReplicas - d.MinReplicas)
+		desired := desiredReductions[key]
+		
+		actualReduction := min(desired, maxPossibleReduction)
 		finalReductions[key] = actualReduction
-		totalDeficit += desiredReductions[key] - actualReduction
+		totalDeficit += desired - actualReduction
 	}
-
-	// Redistribute the deficit if any deployment couldn't be scaled down enough.
+	
+	// Step 5: Redistribute deficit.
 	for totalDeficit > 0 {
-		type donor struct{ key string; margin int }
-		var donors []donor
+		type donorInfo struct {
+			key    string
+			margin int
+		}
+		var donors []donorInfo
 		for _, d := range s.Deployments {
 			key := fmt.Sprintf("%s/%s", d.Namespace, d.Name)
-			margin := int(d.MaxReplicas - d.MinReplicas) - finalReductions[key]
+			maxPossibleReduction := int(d.MaxReplicas - d.MinReplicas)
+			currentReduction := finalReductions[key]
+			margin := maxPossibleReduction - currentReduction
 			if margin > 0 {
-				donors = append(donors, donor{key: key, margin: margin})
+				donors = append(donors, donorInfo{key: key, margin: margin})
 			}
 		}
 
@@ -291,12 +333,13 @@ func (s *DeclarativeScaler) CalculateTargetState(reductionPercentage float64) []
 		}
 		
 		sort.Slice(donors, func(i, j int) bool { return donors[i].margin > donors[j].margin })
+		
 		bestDonorKey := donors[0].key
 		finalReductions[bestDonorKey]++
 		totalDeficit--
 	}
 	
-	// Step 5: Calculate the final target replica count for each deployment.
+	// Step 6: Calculate final replica counts.
 	finalStates := make([]TargetState, len(s.Deployments))
 	for i, d := range s.Deployments {
 		key := fmt.Sprintf("%s/%s", d.Namespace, d.Name)
