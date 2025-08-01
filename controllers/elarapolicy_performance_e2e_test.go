@@ -42,12 +42,23 @@ var _ = Describe("ElaraPolicy Controller Performance E2E", func() {
 	})
 
 	AfterEach(func() {
-		By("Cleaning up performance test resources")
-		ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: PerfTestNamespace}}
-		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, ns))).Should(Succeed())
-		
+		By("Cleaning up performance test resources (excluding namespace itself)")
+
 		policy := &greenopsv1.ElaraPolicy{ObjectMeta: metav1.ObjectMeta{Name: PerfPolicyName}}
-		_ = k8sClient.Delete(ctx, policy)
+		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, policy))).Should(Succeed())
+		node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "perf-node"}}
+		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, node))).Should(Succeed())
+
+		By("Explicitly deleting all mock deployments in namespace " + PerfTestNamespace)
+		// Use DeleteAllOf for efficiency
+		Expect(k8sClient.DeleteAllOf(ctx, &appsv1.Deployment{}, client.InNamespace(PerfTestNamespace), client.MatchingLabels{"elara-test": "perf"})).Should(Succeed())
+		
+		By("Waiting for all deployments to be deleted from namespace " + PerfTestNamespace)
+		Eventually(func() int {
+			list := &appsv1.DeploymentList{}
+			_ = k8sClient.List(ctx, list, client.InNamespace(PerfTestNamespace), client.MatchingLabels{"elara-test": "perf"})
+			return len(list.Items)
+		}, perfTimeout, perfInterval).Should(BeZero())
 	})
 
 	It("Should correctly scale a large number of deployments", func() {

@@ -146,3 +146,28 @@ test-exp-ramp: manifests generate test-env
 test-exp-ramp-conv: manifests generate test-env
 	@echo "+++ Running Experiment: Ramp Convergence Test (Reactivity)..."
 	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Ramp Convergence Test"
+
+## test-exp-stress: Run the Constraint Stress Test experiment.
+.PHONY: test-exp-stress
+test-exp-stress: manifests generate test-env
+	@echo "+++ Running Experiment: Constraint Stress Test..."
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Constraint Stress Test"
+
+## plot: Run all experiments and generate publication-ready plots.
+.PHONY: plot
+plot: test-exp-ramp test-exp-ramp-conv
+	@echo "+++ All experiments finished. Generating plots..."
+	@python3 analysis/plot_results.py
+
+
+## plot-plateau: Run the plateau experiment and generate the final plot.
+.PHONY: plot-plateau
+plot-plateau: test-exp-plateau
+	@echo "+++ Plateau experiment finished. Generating plot..."
+	@python3 analysis/plot_results.py
+
+## test-exp-plateau: Run the Plateau Test experiment.
+.PHONY: test-exp-plateau
+test-exp-plateau: manifests generate test-env
+	@echo "+++ Running Experiment: Power Plateau Test..."
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Complex Plateau Test"

@@ -3,12 +3,14 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+
 	//"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -140,5 +142,19 @@ var _ = Describe("ElaraPolicy Controller: Ramp Convergence Test", func() {
 		fmt.Println("---------------------------------")
 
 		Expect(maxConvergenceMs).To(BeNumerically("<", 5000), "Convergence at each step should be fast")
+
+		header := []string{"Step", "PowerLevel", "ConvergenceTime_ms"}
+		records := [][]string{header}
+		for i, ct := range convergenceTimes {
+			powerLevel := optimalPower - (float64(i+1) * powerStep)
+			record := []string{
+				strconv.Itoa(i + 1),
+				fmt.Sprintf("%.2f", powerLevel),
+				strconv.FormatInt(ct.Milliseconds(), 10),
+			}
+			records = append(records, record)
+		}
+		Expect(saveDataToCSV("ramp_convergence_data.csv", records)).To(Succeed())
+
 	})
 })

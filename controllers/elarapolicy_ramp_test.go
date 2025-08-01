@@ -2,18 +2,24 @@ package controllers
 
 import (
 	"context"
+	"encoding/csv"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+
 	//"k8s.io/apimachinery/pkg/api/errors"
 	//"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	//"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	greenopsv1 "elara/api/v1" // IMPORTANT: Use your module name
@@ -22,7 +28,8 @@ import (
 // Data structure to hold the metrics collected at each step of the ramp.
 type RampDataPoint struct {
 	Timestamp      time.Time
-	PowerLevel     float64
+	OptimalPower   float64
+	CurrentPower   float64
 	TargetReplicas int32
 	ActualReplicas int32
 	Error          int32
@@ -31,16 +38,12 @@ type RampDataPoint struct {
 var _ = Describe("ElaraPolicy Controller: Ramp Test", func() {
 
 	const (
-		// Use a fixed namespace for testing, as we won't be deleting it.
-		// "default" is always available in envtest.
-		RampTestNamespace = "default" 
-		RampPolicyName    = "ramp-test-policy"
-		NodeName          = "ramp-test-node"
-		// Experiment parameters
-		NumRampSteps = 10                  // Number of steps for ramp down and up
-		StepDelay    = 5 * time.Second   // Time to wait between power changes
-		rampTimeout  = 60 * time.Second    // General timeout for assertions (not cleanup hangs)
-		rampInterval = 250 * time.Millisecond
+		ComplexRampNamespace = "default"
+		ComplexRampPolicyName = "complex-ramp-policy"
+		NumRampSteps          = 10
+		StepDelay             = 5 * time.Second
+		rampTimeout           = 90 * time.Second // Un peu plus de temps pour le setup/cleanup
+		rampInterval          = 250 * time.Millisecond
 	)
 
 	ctx := context.Background()
@@ -48,120 +51,119 @@ var _ = Describe("ElaraPolicy Controller: Ramp Test", func() {
 	// BeforeEach: We no longer create a unique namespace per test.
 	// We rely on 'default' or a fixed one that is assumed to exist.
 	BeforeEach(func() {
-		By(fmt.Sprintf("Using fixed namespace '%s' for ramp test (not explicitly created/deleted)", RampTestNamespace))
+		By(fmt.Sprintf("Using fixed namespace '%s' for ramp test (not explicitly created/deleted)", ComplexRampNamespace))
 	})
 
 	// AfterEach: This is the definitive cleanup logic that will prevent hangs.
 	AfterEach(func() {
-		By("Cleaning up ramp test resources (excluding namespace itself)")
-
-		// Step 1: Delete the ElaraPolicy first to stop the controller from reconciling.
-		policy := &greenopsv1.ElaraPolicy{ObjectMeta: metav1.ObjectMeta{Name: RampPolicyName}}
+		By("Cleaning up complex ramp test resources")
+		policy := &greenopsv1.ElaraPolicy{ObjectMeta: metav1.ObjectMeta{Name: ComplexRampPolicyName}}
 		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, policy))).Should(Succeed())
 
-		// Step 2: Delete the test node.
-		node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: NodeName}}
-		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, node))).Should(Succeed())
-
-		// Step 3: Explicitly delete all deployments created by this test in the fixed namespace.
-		By(fmt.Sprintf("Explicitly deleting all mock deployments in namespace '%s'", RampTestNamespace))
-		deploymentList := &appsv1.DeploymentList{}
-		Expect(k8sClient.List(ctx, deploymentList, client.InNamespace(RampTestNamespace))).Should(Succeed())
-		for _, dep := range deploymentList.Items {
-			// Ensure we only delete deployments *created by this test* if using a shared namespace.
-			// In this case, our naming convention 'app-xxx' makes them unique.
-			if dep.ObjectMeta.Name != "" { // Simple check to avoid deleting random things
-			    Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &dep))).Should(Succeed())
-			}
+		// Delete all test nodes
+		nodeList := &corev1.NodeList{}
+		Expect(k8sClient.List(ctx, nodeList, client.MatchingLabels{"elara-test": "complex-ramp"})).Should(Succeed())
+		for _, node := range nodeList.Items {
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &node))).Should(Succeed())
 		}
 		
-		// Step 4: Wait for all deployments to be gone. This is critical to prevent resource leaks.
-		By(fmt.Sprintf("Waiting for all deployments to be deleted from namespace '%s'", RampTestNamespace))
-		Eventually(func() (int, error) {
-			err := k8sClient.List(ctx, deploymentList, client.InNamespace(RampTestNamespace))
-			if err != nil { return -1, err }
-			return len(deploymentList.Items), nil
-		}, rampTimeout, rampInterval).Should(BeZero(), "All deployments should be deleted from the fixed namespace")
-		
-		// IMPORTANT: No namespace deletion here, as per your requirement.
+		// Delete all deployments in the namespace
+		Expect(k8sClient.DeleteAllOf(ctx, &appsv1.Deployment{}, client.InNamespace(ComplexRampNamespace), client.MatchingLabels{"elara-test": "complex-ramp"})).Should(Succeed())
+		Eventually(func() int {
+			list := &appsv1.DeploymentList{}
+			_ = k8sClient.List(ctx, list, client.InNamespace(ComplexRampNamespace), client.MatchingLabels{"elara-test": "complex-ramp"})
+			return len(list.Items)
+		}, rampTimeout, rampInterval).Should(BeZero())
 	})
 
-	It("should track a gradual power signal with low replication error", func() {
+	It("should track a gradual power signal in a complex, heterogeneous environment", func() {
 		// --- SETUP ---
-		managedDeployments := generateManagedDeployments(RampTestNamespace, 20) // Use a smaller set for a faster test
+		// Generate a complex topology with multiple groups of deployments
+		managedDeployments := generateComplexTopology(ComplexRampNamespace, 30)
 		for _, md := range managedDeployments {
 			dep := createMockDeployment(md.Namespace, md.Name, md.MaxReplicas)
+			dep.Labels = map[string]string{"elara-test": "complex-ramp"}
 			Expect(k8sClient.Create(ctx, dep)).Should(Succeed())
 		}
-		
-		node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: NodeName, Labels: map[string]string{optimalPowerLabel: "1000", currentPowerLabel: "1000"}}}
-		Expect(k8sClient.Create(ctx, node)).Should(Succeed())
-		// Defer is not needed here as Node is explicitly deleted in AfterEach
-		// defer k8sClient.Delete(ctx, node) 
+
+		// Create multiple nodes with different capacities
+		nodes := []*corev1.Node{
+			{ObjectMeta: metav1.ObjectMeta{Name: "powerful-node-1", Labels: map[string]string{"elara-test": "complex-ramp", optimalPowerLabel: "1000", currentPowerLabel: "1000"}}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "medium-node-2",   Labels: map[string]string{"elara-test": "complex-ramp", optimalPowerLabel: "500", currentPowerLabel: "500"}}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "small-node-3",    Labels: map[string]string{"elara-test": "complex-ramp", optimalPowerLabel: "250", currentPowerLabel: "250"}}},
+		}
+		var optimalPower float64
+		for _, node := range nodes {
+			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+			opt, _ := strconv.ParseFloat(node.Labels[optimalPowerLabel], 64)
+			optimalPower += opt
+		}
 		
 		policy := &greenopsv1.ElaraPolicy{
-			ObjectMeta: metav1.ObjectMeta{Name: RampPolicyName},
+			ObjectMeta: metav1.ObjectMeta{Name: ComplexRampPolicyName},
 			Spec:       greenopsv1.ElaraPolicySpec{Deployments: managedDeployments},
 		}
 		Expect(k8sClient.Create(ctx, policy)).Should(Succeed())
 
-		// Ensure system starts at a stable, optimal state.
 		By("Ensuring initial state is stable at max replicas")
 		expectedInitialReplicas := make(map[string]int32)
 		for _, md := range managedDeployments { expectedInitialReplicas[md.Name] = md.MaxReplicas }
-		assertAllDeploymentsConverged(ctx, RampTestNamespace, expectedInitialReplicas)
+		assertAllDeploymentsConverged(ctx, ComplexRampNamespace, expectedInitialReplicas)
 
 		// --- RAMP DOWN & DATA COLLECTION ---
 		By("Beginning ramp down from 100% to 40% power")
 		var collectedData []RampDataPoint
 		scaler := &DeclarativeScaler{Deployments: managedDeployments}
+		minPowerFactor := 0.4 // 40%
+		
+		for i := 0; i <= NumRampSteps; i++ {
+			// Calculate the power factor for this step
+			powerFactor := 1.0 - ( (1.0 - minPowerFactor) * (float64(i) / float64(NumRampSteps)) )
+			currentPower := optimalPower * powerFactor
 
-		optimalPower := 1000.0
-		minPower := 400.0
-		powerStep := (optimalPower - minPower) / float64(NumRampSteps)
-
-		for i := 1; i <= NumRampSteps; i++ {
-			currentPower := optimalPower - (float64(i) * powerStep)
+			By(fmt.Sprintf("Ramp Down Step %d/%d: Setting power to %.2f (%.0f%%)", i, NumRampSteps, currentPower, powerFactor*100))
+			// Update the labels of all nodes proportionally
+			nodeList := &corev1.NodeList{}
+			Expect(k8sClient.List(ctx, nodeList, client.MatchingLabels{"elara-test": "complex-ramp"})).Should(Succeed())
+			for _, node := range nodeList.Items {
+				opt, _ := strconv.ParseFloat(node.Labels[optimalPowerLabel], 64)
+				node.Labels[currentPowerLabel] = fmt.Sprintf("%.2f", opt * powerFactor)
+				Expect(k8sClient.Update(ctx, &node)).Should(Succeed())
+			}
 			
-			By(fmt.Sprintf("Ramp Down Step %d/%d: Setting power to %.2f", i, NumRampSteps, currentPower))
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: NodeName}, node)).Should(Succeed())
-			node.Labels[currentPowerLabel] = fmt.Sprintf("%.2f", currentPower)
-			Expect(k8sClient.Update(ctx, node)).Should(Succeed())
+			if i > 0 { time.Sleep(StepDelay) } // Pas de délai avant la première mesure
 
-			time.Sleep(StepDelay) // Wait for the system to react
-
-			// Collect data point
-			dataPoint := collectDataPoint(ctx, scaler, RampTestNamespace, currentPower, optimalPower)
+			dataPoint := collectDataPoint(ctx, scaler, ComplexRampNamespace, currentPower, optimalPower)
 			collectedData = append(collectedData, dataPoint)
 		}
 
-		// --- RAMP UP & DATA COLLECTION ---
-		By("Beginning ramp up from 40% to 100% power")
-		for i := 1; i <= NumRampSteps; i++ {
-			currentPower := minPower + (float64(i) * powerStep)
-			
-			By(fmt.Sprintf("Ramp Up Step %d/%d: Setting power to %.2f", i, NumRampSteps, currentPower))
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: NodeName}, node)).Should(Succeed())
-			node.Labels[currentPowerLabel] = fmt.Sprintf("%.2f", currentPower)
-			Expect(k8sClient.Update(ctx, node)).Should(Succeed())
-
-			time.Sleep(StepDelay)
-
-			dataPoint := collectDataPoint(ctx, scaler, RampTestNamespace, currentPower, optimalPower)
-			collectedData = append(collectedData, dataPoint)
-		}
-
-		// --- FINAL VALIDATION & REPORTING ---
-		By("Asserting final state has returned to max replicas")
-		assertAllDeploymentsConverged(ctx, RampTestNamespace, expectedInitialReplicas)
-
-		By("Reporting collected metrics")
+		By("Reporting and saving collected metrics")
 		var totalError int64
 		var maxError int32
 		fmt.Println("\n--- METRICS: RAMP TEST RESULTS ---")
+		
+		// --- THIS IS THE CORRECTED SECTION ---
+		// The header now correctly matches the data being written.
+		header := []string{"Step", "OptimalPower", "CurrentPower", "TargetReplicas", "ActualReplicas", "ReplicationError"}
+		records := [][]string{header}
+		for i, data := range collectedData {
+			record := []string{
+				strconv.Itoa(i + 1),
+				fmt.Sprintf("%.2f", data.OptimalPower),
+				fmt.Sprintf("%.2f", data.CurrentPower),
+				strconv.Itoa(int(data.TargetReplicas)),
+				strconv.Itoa(int(data.ActualReplicas)),
+				strconv.Itoa(int(data.Error)),
+			}
+			records = append(records, record)
+		}
+		Expect(saveDataToCSV("ramp_error_data.csv", records)).To(Succeed())
+		// --- END OF CORRECTION ---
+
+		// Print the summary to the console for quick viewing.
 		fmt.Println("Step,PowerLevel,TargetReplicas,ActualReplicas,ReplicationError")
 		for i, data := range collectedData {
-			fmt.Printf("%d,%.2f,%d,%d,%d\n", i+1, data.PowerLevel, data.TargetReplicas, data.ActualReplicas, data.Error)
+			fmt.Printf("%d,%.2f,%d,%d,%d\n", i+1, data.CurrentPower, data.TargetReplicas, data.ActualReplicas, data.Error)
 			totalError += int64(data.Error)
 			if data.Error > maxError {
 				maxError = data.Error
@@ -172,8 +174,7 @@ var _ = Describe("ElaraPolicy Controller: Ramp Test", func() {
 		fmt.Printf("Average Replication Error: %.2f\n", avgError)
 		fmt.Printf("Maximum Replication Error: %d\n", maxError)
 		fmt.Println("---------------------------------")
-
-		// A final assertion for the test itself.
+		
 		Expect(avgError).To(BeNumerically("<", 5), "Average replication error should be low")
 	})
 })
@@ -202,80 +203,69 @@ func collectDataPoint(ctx context.Context, scaler *DeclarativeScaler, namespace 
 	errorVal := int32(math.Abs(float64(totalTargetReplicas - totalActualReplicas)))
 	return RampDataPoint{
 		Timestamp:      time.Now(),
-		PowerLevel:     currentPower,
+		CurrentPower:   currentPower,
+		OptimalPower:   optimalPower,
 		TargetReplicas: totalTargetReplicas,
 		ActualReplicas: totalActualReplicas,
 		Error:          errorVal,
 	}
 }
 
-// // createMockDeployment is a helper function to create a basic Deployment object for tests.
-// func createMockDeployment(namespace, name string, replicas int32) *appsv1.Deployment {
-// 	return &appsv1.Deployment{
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name:      name,
-// 			Namespace: namespace,
-// 		},
-// 		Spec: appsv1.DeploymentSpec{
-// 			Replicas: &replicas,
-// 			Selector: &metav1.LabelSelector{
-// 				MatchLabels: map[string]string{"app": name},
-// 			},
-// 			Template: corev1.PodTemplateSpec{
-// 				ObjectMeta: metav1.ObjectMeta{
-// 					Labels: map[string]string{"app": name},
-// 				},
-// 				Spec: corev1.PodSpec{
-// 					Containers: []corev1.Container{{
-// 						Name:  "main",
-// 						Image: "nginx",
-// 					}},
-// 				},
-// 			},
-// 		},
-// 	}
-// }
+// saveDataToCSV is a utility function to save collected data to a CSV file.
+func saveDataToCSV(filename string, data [][]string) error {
+	// Create the results directory if it doesn't exist
+	if err := os.MkdirAll("../results", os.ModePerm); err != nil {
+		return err
+	}
 
-// // generateManagedDeployments creates a diverse list of deployment specs for the policy.
-// func generateManagedDeployments(namespace string, count int) []greenopsv1.ManagedDeployment {
-// 	deployments := make([]greenopsv1.ManagedDeployment, count)
-// 	for i := 0; i < count; i++ {
-// 		name := fmt.Sprintf("app-%03d", i)
-// 		group := fmt.Sprintf("group-%d", i%5)
-		
-// 		deployments[i] = greenopsv1.ManagedDeployment{
-// 			Name:        name,
-// 			Namespace:   namespace,
-// 			MinReplicas: 1,
-// 			MaxReplicas: int32(5 + (i % 15)),
-// 			Weight:      resource.MustParse("1.0"),
-// 			Group:       group,
-// 		}
-// 	}
-// 	// Make some deployments independent
-// 	for i := 0; i < count/10; i++ { // 10% are independent
-// 		deployments[i].Group = ""
-// 	}
-// 	return deployments
-// }
+	file, err := os.Create(filepath.Join("../results", filename))
+	if err != nil {
+		return err
+	}
+	defer file.Close()
 
-// // assertAllDeploymentsConverged is an efficient assertion helper.
-// func assertAllDeploymentsConverged(ctx context.Context, namespace string, expectedReplicas map[string]int32) {
-// 	Eventually(func(g Gomega) {
-// 		deploymentList := &appsv1.DeploymentList{}
-// 		err := k8sClient.List(ctx, deploymentList, client.InNamespace(namespace))
-// 		g.Expect(err).NotTo(HaveOccurred(), "Should be able to list deployments")
-		
-// 		currentReplicas := make(map[string]int32)
-// 		for _, dep := range deploymentList.Items {
-// 			if dep.Spec.Replicas != nil {
-// 				currentReplicas[dep.Name] = *dep.Spec.Replicas
-// 			} else {
-// 				currentReplicas[dep.Name] = 0 
-// 			}
-// 		}
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
 
-// 		g.Expect(currentReplicas).To(Equal(expectedReplicas), "All deployments should converge to their target replica counts")
+	for _, value := range data {
+		if err := writer.Write(value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-// 	}, rampTimeout, rampInterval).Should(Succeed())
-// }
+// New helper function to create a richer topology
+func generateComplexTopology(namespace string, count int) []greenopsv1.ManagedDeployment {
+	deployments := make([]greenopsv1.ManagedDeployment, count)
+	
+	// Group 1: Backend Services (critical)
+	for i := 0; i < count/3; i++ {
+		name := fmt.Sprintf("backend-svc-%d", i)
+		deployments[i] = greenopsv1.ManagedDeployment{
+			Name: name, Namespace: namespace, MinReplicas: 3, MaxReplicas: 10,
+			Weight: resource.MustParse(fmt.Sprintf("%.1f", 1.0+float64(i))), Group: "backend-services",
+		}
+	}
+
+	// Group 2: Frontend Services (less critical)
+	start := count / 3
+	for i := start; i < start+(count/3); i++ {
+		name := fmt.Sprintf("frontend-app-%d", i)
+		deployments[i] = greenopsv1.ManagedDeployment{
+			Name: name, Namespace: namespace, MinReplicas: 1, MaxReplicas: 20,
+			Weight: resource.MustParse("1.0"), Group: "frontend-apps",
+		}
+	}
+
+	// Independent Deployments (e.g., monitoring, batch jobs)
+	start = 2 * (count / 3)
+	for i := start; i < count; i++ {
+		name := fmt.Sprintf("independent-job-%d", i)
+		deployments[i] = greenopsv1.ManagedDeployment{
+			Name: name, Namespace: namespace, MinReplicas: 1, MaxReplicas: 5,
+		}
+	}
+	
+	return deployments
+}
