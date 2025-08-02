@@ -1,0 +1,63 @@
+# This is the name of the GitHub Action workflow.
+# It will be displayed in the "Actions" tab of your repository.
+name: Build and Push Docker Image
+
+# This section defines the trigger for the workflow.
+# It will run automatically on every push to the 'main' branch.
+on:
+  push:
+    branches: [ "main" ]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel.
+jobs:
+  # This job is named 'build-and-push'.
+  build-and-push:
+    # The type of runner that the job will run on.
+    # 'ubuntu-latest' is a standard and reliable choice.
+    runs-on: ubuntu-latest
+
+    # These permissions are required for the GITHUB_TOKEN to be able to
+    # write to the GitHub Container Registry (ghcr.io).
+    permissions:
+      contents: read
+      packages: write
+
+    # 'steps' represent a sequence of tasks that will be executed as part of the job.
+    steps:
+      # Step 1: Check out the repository's code
+      # This action checks-out your repository under $GITHUB_WORKSPACE, so your job can access it.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Log in to the GitHub Container Registry (GHCR)
+      # This uses a special, secure GITHUB_TOKEN to authenticate. No manual secrets are needed.
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 3: Extract metadata (tags and labels) for the Docker image
+      # This is a best practice. It automatically generates useful tags like 'latest'
+      # and a tag based on the git commit SHA for perfect traceability.
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }} # e.g., ghcr.io/your-username/elara
+          tags: |
+            # Tag with 'latest' for the main branch
+            type=raw,value=latest,enable={{is_default_branch}}
+            # Tag with the git commit SHA
+            type=sha
+
+      # Step 4: Build and push the Docker image to GHCR
+      # This action uses the metadata from the previous step to build and push the image.
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

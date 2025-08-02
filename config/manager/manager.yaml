@@ -25,7 +25,7 @@ spec:
       serviceAccountName: elara-controller-manager
       containers:
       - name: manager
-        image: ghrc.io/menraromial/elara-controller:v0.1.0 
+        image: ghcr.io/menraromial/elara-controller:v0.1.0
         args:
         - --leader-elect
         resources:
