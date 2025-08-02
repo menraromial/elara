@@ -302,6 +302,34 @@ def plot_weighting_effectiveness(filename):
     plt.close()
 
 
+def plot_elasticity_degradation(filename):
+    """
+    Plots the degradation of energy-saving effectiveness as operational constraints tighten.
+    """
+    print(f"--- Plotting Elasticity Degradation from {filename} ---")
+    try:
+        df = pd.read_csv(filename)
+    except FileNotFoundError:
+        print(f"Error: Data file not found at {filename}")
+        return
+
+    plt.figure(figsize=(12, 7))
+    
+    plt.plot(df['ConstraintLevel'], df['UnrealizedReduction_Percent'], 'o-', color='crimson', markersize=8, linewidth=2.5)
+    
+    plt.title('Elasticity Degradation vs. Cluster Constraint Level', fontsize=16)
+    plt.xlabel('Cluster Constraint Level (% minReplicas / maxReplicas)', fontsize=12)
+    plt.ylabel('Unrealized Power Reduction (%)', fontsize=12)
+    plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+    plt.ylim(bottom=-5, top=105) # Start y-axis slightly below 0 and end above 100
+    plt.xticks(df['ConstraintLevel']) # Ensure every constraint level is a tick
+    plt.tight_layout()
+    
+    output_path = os.path.join(PLOTS_DIR, "elasticity_degradation_plot.png")
+    plt.savefig(output_path, dpi=300)
+    print(f"SUCCESS: Saved plot to {output_path}")
+    plt.close()
+
 def main():
     """
     Main function to find result files and generate plots.
@@ -343,6 +371,9 @@ def main():
             found_files = True
         elif "weighting_data.csv" in filename:
             plot_weighting_effectiveness(full_path)
+            found_files = True
+        elif "sensitivity_data.csv" in filename:
+            plot_elasticity_degradation(full_path)
             found_files = True
 
     if not found_files:

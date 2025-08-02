@@ -155,7 +155,7 @@ test-exp-stress: manifests generate test-env
 
 ## plot: Run all experiments and generate publication-ready plots.
 .PHONY: plot
-plot: test-exp-ramp test-exp-ramp-conv test-exp-plateau test-exp-full-ramp
+plot: test-exp-ramp test-exp-ramp-conv test-exp-plateau test-exp-full-ramp test-exp-solar test-exp-stability test-exp-weighting test-exp-sensitivity
 	@echo "+++ All experiments finished. Generating plots..."
 	@python3 analysis/plot_results.py
 
@@ -219,6 +219,22 @@ plot-weighting: test-exp-weighting
 test-exp-weighting: manifests generate test-env
 	@echo "+++ Running Experiment: Weighting Effectiveness Test..."
 	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Weighting Effectiveness Test"
+
+## plot-sensitivity: Run the sensitivity analysis and generate the degradation plot.
+.PHONY: plot-sensitivity
+plot-sensitivity: test-exp-sensitivity
+	@echo "+++ Sensitivity experiment finished. Generating plot..."
+	@python3 analysis/plot_results.py
+
+## test-exp-sensitivity: Run the constraint sensitivity analysis test.
+.PHONY: test-exp-sensitivity
+test-exp-sensitivity: manifests generate test-env
+	@echo "+++ Running Experiment: Constraint Sensitivity Test..."
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Constraint Sensitivity Test"
+
+
+
+
 
 
 
