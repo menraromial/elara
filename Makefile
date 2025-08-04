@@ -121,37 +121,37 @@ test: manifests generate test-env
 	@echo "+++ Running E2E tests..."
 	# --- THIS IS THE CORRECTED LINE ---
 	# Use `setup-envtest` to find the correct asset path and export it.
-	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./test/... -v -ginkgo.v
 
 ## test-perf: Run the long-running performance/scale E2E tests.
 .PHONY: test-perf
 test-perf: manifests generate test-env
 	@echo "+++ Running performance E2E tests (this may take a minute)..."
-	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller Performance E2E"
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./test/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller Performance E2E"
 
 ## test-exp-step: Run the Step Function experiment to measure convergence time.
 .PHONY: test-exp-step
 test-exp-step: manifests generate test-env
 	@echo "+++ Running Experiment: Step Function Test..."
-	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Step Function Test"
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./test/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Step Function Test"
 
 ## test-exp-ramp: Run the Ramp Test experiment to measure replication error.
 .PHONY: test-exp-ramp
 test-exp-ramp: manifests generate test-env
 	@echo "+++ Running Experiment: Ramp Test..."
-	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Ramp Test"
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./test/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Ramp Test"
 
 ## test-exp-ramp-conv: Run the Ramp Convergence experiment to measure reactivity.
 .PHONY: test-exp-ramp-conv
 test-exp-ramp-conv: manifests generate test-env
 	@echo "+++ Running Experiment: Ramp Convergence Test (Reactivity)..."
-	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Ramp Convergence Test"
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./test/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Ramp Convergence Test"
 
 ## test-exp-stress: Run the Constraint Stress Test experiment.
 .PHONY: test-exp-stress
 test-exp-stress: manifests generate test-env
 	@echo "+++ Running Experiment: Constraint Stress Test..."
-	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Constraint Stress Test"
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./test/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Constraint Stress Test"
 
 ## plot: Run all experiments and generate publication-ready plots.
 .PHONY: plot
@@ -170,7 +170,7 @@ plot-plateau: test-exp-plateau
 .PHONY: test-exp-plateau
 test-exp-plateau: manifests generate test-env
 	@echo "+++ Running Experiment: Power Plateau Test..."
-	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Complex Plateau Test"
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./test/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Complex Plateau Test"
 
 ## plot-full-ramp: Run the complete ramp-down/ramp-up experiment and generate the plot.
 .PHONY: plot-full-ramp
@@ -182,7 +182,7 @@ plot-full-ramp: test-exp-full-ramp
 .PHONY: test-exp-full-ramp
 test-exp-full-ramp: manifests generate test-env
 	@echo "+++ Running Experiment: Full-Cycle Ramp Test..."
-	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Full-Cycle Ramp Test"
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./test/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Full-Cycle Ramp Test"
 
 ## plot-solar: Run the solar simulation and generate the final plot.
 .PHONY: plot-solar
@@ -194,7 +194,7 @@ plot-solar: test-exp-solar
 .PHONY: test-exp-solar
 test-exp-solar: manifests generate test-env
 	@echo "+++ Running Experiment: Solar Simulation Test..."
-	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Solar Simulation Test"
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./test/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Solar Simulation Test"
 
 ## plot-stability: Run the stability experiment and generate the final plot.
 .PHONY: plot-stability
@@ -206,7 +206,7 @@ plot-stability: test-exp-stability
 .PHONY: test-exp-stability
 test-exp-stability: manifests generate test-env
 	@echo "+++ Running Experiment: High-Frequency Noise Stability Test..."
-	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Stability Test"
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./test/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Stability Test"
 
 ## plot-weighting: Run the weighting experiment and generate the final plot.
 .PHONY: plot-weighting
@@ -218,7 +218,7 @@ plot-weighting: test-exp-weighting
 .PHONY: test-exp-weighting
 test-exp-weighting: manifests generate test-env
 	@echo "+++ Running Experiment: Weighting Effectiveness Test..."
-	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Weighting Effectiveness Test"
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./test/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Weighting Effectiveness Test"
 
 ## plot-sensitivity: Run the sensitivity analysis and generate the degradation plot.
 .PHONY: plot-sensitivity
@@ -230,7 +230,14 @@ plot-sensitivity: test-exp-sensitivity
 .PHONY: test-exp-sensitivity
 test-exp-sensitivity: manifests generate test-env
 	@echo "+++ Running Experiment: Constraint Sensitivity Test..."
-	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./controllers/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Constraint Sensitivity Test"
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./test/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Constraint Sensitivity Test"
+
+
+## test-exp-shock: Run the large-scale shock & recovery test.
+.PHONY: test-exp-shock
+test-exp-shock: manifests generate test-env
+	@echo "+++ Running Experiment: Large-Scale Shock & Recovery Test..."
+	@KUBEBUILDER_ASSETS=`$(ENVTEST) use -p path 1.28.3` go test ./test/... -v -ginkgo.v -ginkgo.focus="ElaraPolicy Controller: Large-Scale Shock & Recovery Test"
 
 
 

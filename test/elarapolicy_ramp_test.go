@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	greenopsv1 "elara/api/v1" // IMPORTANT: Use your module name
+	ctrl "elara/controllers"
 )
 
 // Data structure to hold the metrics collected at each step of the ramp.
@@ -113,7 +114,7 @@ var _ = Describe("ElaraPolicy Controller: Ramp Test", func() {
 		// --- RAMP DOWN & DATA COLLECTION ---
 		By("Beginning ramp down from 100% to 40% power")
 		var collectedData []RampDataPoint
-		scaler := &DeclarativeScaler{Deployments: managedDeployments}
+		scaler := &ctrl.DeclarativeScaler{Deployments: managedDeployments}
 		minPowerFactor := 0.4 // 40%
 		
 		for i := 0; i <= NumRampSteps; i++ {
@@ -180,7 +181,7 @@ var _ = Describe("ElaraPolicy Controller: Ramp Test", func() {
 })
 
 // collectDataPoint is a helper to measure the system's state at a point in time.
-func collectDataPoint(ctx context.Context, scaler *DeclarativeScaler, namespace string, currentPower, optimalPower float64) RampDataPoint {
+func collectDataPoint(ctx context.Context, scaler *ctrl.DeclarativeScaler, namespace string, currentPower, optimalPower float64) RampDataPoint {
 	// 1. Calculate the theoretical target state
 	reductionPercentage := (optimalPower - currentPower) / optimalPower
 	targetStates := scaler.CalculateTargetState(reductionPercentage)

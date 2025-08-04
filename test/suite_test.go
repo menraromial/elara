@@ -41,6 +41,8 @@ import (
 
 	greenopsv1 "elara/api/v1" // IMPORTANT: Use your module name
 	//+kubebuilder:scaffold:imports
+	elaractrl "elara/controllers"
+	
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -95,7 +97,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&ElaraPolicyReconciler{
+	err = (&elaractrl.ElaraPolicyReconciler{
 		Client: k8sManager.GetClient(),
 		Scheme: k8sManager.GetScheme(),
 	}).SetupWithManager(k8sManager)

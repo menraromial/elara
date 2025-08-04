@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	greenopsv1 "elara/api/v1" // IMPORTANT: Use your module name
+	ctrl "elara/controllers"
 )
 
 
@@ -87,7 +88,7 @@ var _ = Describe("ElaraPolicy Controller: Ramp Convergence Test", func() {
 		// --- RAMP DOWN & CONVERGENCE TIME MEASUREMENT ---
 		By("Beginning ramp down and measuring convergence time at each step")
 		var convergenceTimes []time.Duration
-		scaler := &DeclarativeScaler{Deployments: managedDeployments}
+		scaler := &ctrl.DeclarativeScaler{Deployments: managedDeployments}
 
 		optimalPower := 1000.0
 		minPower := 400.0

@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	greenopsv1 "elara/api/v1" // IMPORTANT: Use your module name
+	ctrl "elara/controllers"
 )
 
 // Data structure for this specific test
@@ -88,7 +89,7 @@ var _ = Describe("ElaraPolicy Controller: Stability Test (High-Frequency Noise)"
 		// --- NOISY SIGNAL SIMULATION & DATA COLLECTION ---
 		By("Executing a noisy power signal simulation around a stable mean")
 		var collectedData []StabilityDataPoint
-		scaler := &DeclarativeScaler{Deployments: managedDeployments}
+		scaler := &ctrl.DeclarativeScaler{Deployments: managedDeployments}
 		rand.Seed(time.Now().UnixNano())
 
 		meanPowerFactor := 0.80 // The stable average power level (80%)

@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	greenopsv1 "elara/api/v1" // IMPORTANT: Use your module name
+	ctrl "elara/controllers"
 )
 
 // *** CONSTANTS MOVED HERE to be accessible by all functions in this file ***
@@ -90,7 +91,7 @@ var _ = Describe("ElaraPolicy Controller: Full-Cycle Ramp Test", func() {
 		// --- POWER CYCLE & DATA COLLECTION ---
 		By("Executing a full ramp-down and ramp-up power cycle")
 		var collectedData []RampDataPoint
-		scaler := &DeclarativeScaler{Deployments: managedDeployments}
+		scaler := &ctrl.DeclarativeScaler{Deployments: managedDeployments}
 		minPowerFactor := 0.4
 
 		// PHASE 1: RAMP DOWN
@@ -130,7 +131,7 @@ var _ = Describe("ElaraPolicy Controller: Full-Cycle Ramp Test", func() {
 })
 
 // updatePowerAndCollectData is a helper function to avoid code duplication for ramp steps.
-func updatePowerAndCollectData(ctx context.Context, powerFactor, optimalPower float64, data *[]RampDataPoint, scaler *DeclarativeScaler, namespace string) {
+func updatePowerAndCollectData(ctx context.Context, powerFactor, optimalPower float64, data *[]RampDataPoint, scaler *ctrl.DeclarativeScaler, namespace string) {
 	currentPower := optimalPower * powerFactor
 	
 	By(fmt.Sprintf("Setting power to %.2f (%.0f%%)", currentPower, powerFactor*100))

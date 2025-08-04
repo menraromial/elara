@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	greenopsv1 "elara/api/v1" // IMPORTANT: Use your module name
+	ctrl "elara/controllers"
 )
 
 // *** CONSTANTS MOVED HERE to be accessible by helper functions ***
@@ -100,7 +101,7 @@ var _ = Describe("ElaraPolicy Controller Performance E2E", func() {
 		
 		// --- Assert 2: All deployments should scale down to their new target ---
 		By("Asserting that all deployments have scaled down")
-		scaler := &DeclarativeScaler{Deployments: managedDeployments}
+		scaler := &ctrl.DeclarativeScaler{Deployments: managedDeployments}
 		targetStates := scaler.CalculateTargetState(0.30)
 		expectedReplicasAfterDrop := make(map[string]int32)
 		for _, ts := range targetStates {

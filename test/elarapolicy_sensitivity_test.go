@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	greenopsv1 "elara/api/v1" // IMPORTANT: Use your module name
+	ctrl "elara/controllers"
 )
 
 // DataPoint for this specific test
@@ -99,7 +100,7 @@ var _ = Describe("ElaraPolicy Controller: Constraint Sensitivity Test", func() {
 			
 			// --- MEASUREMENT ---
 			// Wait for the system to converge
-			scaler := &DeclarativeScaler{Deployments: managedDeployments}
+			scaler := &ctrl.DeclarativeScaler{Deployments: managedDeployments}
 			targetStates := scaler.CalculateTargetState(powerDropPercentage)
 			expectedReplicas := make(map[string]int32)
 			for _, ts := range targetStates {

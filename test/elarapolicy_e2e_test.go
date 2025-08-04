@@ -15,6 +15,13 @@ import (
 	greenopsv1 "elara/api/v1" // IMPORTANT: Use your module name
 )
 
+// Constants for the node labels used to determine power.
+const (
+	optimalPowerLabel   = "rapl/optimal"
+	currentPowerLabel   = "rapl/current"
+	masterNodeRoleLabel = "node-role.kubernetes.io/master"
+)
+
 var _ = Describe("ElaraPolicy Controller E2E", func() {
 
 	const (

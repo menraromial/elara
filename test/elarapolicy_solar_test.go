@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	greenopsv1 "elara/api/v1" // IMPORTANT: Use your module name
+	ctrl "elara/controllers"
 )
 
 var _ = Describe("ElaraPolicy Controller: Solar Simulation Test", func() {
@@ -79,7 +80,7 @@ var _ = Describe("ElaraPolicy Controller: Solar Simulation Test", func() {
 		Expect(k8sClient.Create(ctx, policy)).Should(Succeed())
 
 		By("Ensuring initial state is at minimum (night time)")
-		scaler := &DeclarativeScaler{Deployments: managedDeployments}
+		scaler := &ctrl.DeclarativeScaler{Deployments: managedDeployments}
 		initialTargetStates := scaler.CalculateTargetState(1.0) // 100% reduction
 		expectedInitialReplicas := make(map[string]int32)
 		for _, ts := range initialTargetStates {
@@ -131,7 +132,7 @@ var _ = Describe("ElaraPolicy Controller: Solar Simulation Test", func() {
 
 
 // *** HELPER FUNCTION IS NOW DEFINITIVELY CORRECTED ***
-func updatePowerAndCollectSolarData(ctx context.Context, powerFactor, optimalPower float64, data *[]RampDataPoint, scaler *DeclarativeScaler, namespace string) {
+func updatePowerAndCollectSolarData(ctx context.Context, powerFactor, optimalPower float64, data *[]RampDataPoint, scaler *ctrl.DeclarativeScaler, namespace string) {
 	currentPower := optimalPower * powerFactor
 	
 	By(fmt.Sprintf("Setting power to %.2f (%.0f%%)", currentPower, powerFactor*100))

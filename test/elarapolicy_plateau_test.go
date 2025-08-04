@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	greenopsv1 "elara/api/v1" // IMPORTANT: Use your module name
+	ctrl "elara/controllers"
 )
 
 // PowerStep defines a single plateau in our power plan.
@@ -109,7 +110,7 @@ var _ = Describe("ElaraPolicy Controller: Complex Plateau Test", func() {
 
 		By("Executing power plateau plan and collecting data")
 		var collectedData []RampDataPoint
-		scaler := &DeclarativeScaler{Deployments: managedDeployments}
+		scaler := &ctrl.DeclarativeScaler{Deployments: managedDeployments}
 		stepCounter := 0
 
 		for _, planStep := range powerPlan {
