@@ -3,10 +3,26 @@
 name: Build and Push Docker Image
 
 # This section defines the trigger for the workflow.
-# It will run automatically on every push to the 'main' branch.
+# It will run automatically on every push to the 'main' branch,
+# EXCEPT when changes are only in the specified ignored paths.
 on:
   push:
     branches: [ "main" ]
+    paths-ignore:
+      - 'analysis/**'
+      - 'test/**'
+      - 'simulate/**'
+      - 'results/**'
+      - 'Makefile'
+      - 'makefile'
+      - 'README.md'
+      - 'readme.md'
+      - 'README.txt'
+      - 'readme.txt'
+      - '*.pdf'
+      - '.gitignore'
+      - 'hack/**'
+      - 'config/**'
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel.
 jobs:
