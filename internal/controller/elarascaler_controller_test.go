@@ -179,11 +179,9 @@ var _ = Describe("ElaraScaler Controller", func() {
 			workerNode.Annotations["elara.dev/power-consumption"] = "75.0"
 			Expect(k8sClient.Update(ctx, workerNode)).Should(Succeed())
 
-			// Expected distribution (by consumption):
-			// dep1 gets 3 * (8/12) = 2 -> LRM gives 2
-			// dep2 gets 3 * (4/12) = 1 -> LRM gives 1
 			// Expected final state: dep1 -> 8-2=6, dep2 -> 4-1=3
 
+			// Use Eventually to wait for the final state, ignoring intermediate states.
 			By("Verifying dep1 scaled down to 6 replicas")
 			Eventually(func() int32 {
 				d := &appsv1.Deployment{}
@@ -197,6 +195,18 @@ var _ = Describe("ElaraScaler Controller", func() {
 				_ = k8sClient.Get(ctx, dep2Key, d)
 				return *d.Spec.Replicas
 			}, timeout, interval).Should(Equal(int32(3)))
+
+			// AND crucially, verify that the controller returns to a stable state
+			By("Verifying the controller is Stable with the new reference power")
+			Eventually(func() string {
+				s := &scalingv1alpha1.ElaraScaler{}
+				_ = k8sClient.Get(ctx, scalerLookupKey, s)
+				// Check that P_ref has been updated, which signals the end of the cycle
+				if s.Status.ReferencePower != nil && s.Status.ReferencePower.AsApproximateFloat64() == 75.0 {
+					return s.Status.Mode
+				}
+				return ""
+			}, timeout, interval).Should(Equal("Stable"))
 		})
 	})
 	// ... end of Describe block

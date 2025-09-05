@@ -1,0 +1,302 @@
+{{- if .Values.crd.enable }}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.crd.keep }}
+    "helm.sh/resource-policy": keep
+    {{- end }}
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: elarascalers.scaling.elara.dev
+spec:
+  group: scaling.elara.dev
+  names:
+    kind: ElaraScaler
+    listKind: ElaraScalerList
+    plural: elarascalers
+    singular: elarascaler
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.mode
+      name: Mode
+      type: string
+    - jsonPath: .status.referencePower
+      name: Ref Power
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ElaraScaler is the Schema for the elarascalers API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ElaraScalerSpec defines the desired state of an ElaraScaler
+              policy.
+            properties:
+              deadband:
+                anyOf:
+                - type: integer
+                - type: string
+                description: |-
+                  Deadband is the minimal relative change in power required to trigger a scaling evaluation.
+                  Corresponds to δ in the model. Represented as a string, e.g., "0.05" for 5%.
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
+              deploymentGroups:
+                description: |-
+                  DeploymentGroups defines groups of deployments that are scaled together.
+                  Corresponds to G in the model.
+                items:
+                  description: DeploymentGroupSpec defines a group of deployments
+                    with weighted scaling.
+                  properties:
+                    members:
+                      description: Members of the scaling group.
+                      items:
+                        description: GroupMemberSpec defines a deployment within a
+                          group, including its weight.
+                        properties:
+                          maxReplicas:
+                            description: MaxReplicas is the maximum number of replicas.
+                              Corresponds to M_d.
+                            format: int32
+                            type: integer
+                          minReplicas:
+                            description: MinReplicas is the minimum number of replicas.
+                              Corresponds to N_d.
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          name:
+                            description: Name of the target Kubernetes Deployment.
+                            type: string
+                          namespace:
+                            description: Namespace of the target Kubernetes Deployment.
+                            type: string
+                          weight:
+                            description: Weight for distributing scaling actions within
+                              the group. Corresponds to w_d.
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        required:
+                        - maxReplicas
+                        - minReplicas
+                        - name
+                        - namespace
+                        - weight
+                        type: object
+                      minItems: 1
+                      type: array
+                    name:
+                      description: Name for the group, for identification purposes.
+                      type: string
+                  required:
+                  - members
+                  - name
+                  type: object
+                type: array
+              dryRun:
+                description: |-
+                  DryRun mode prevents the controller from making any actual scaling changes.
+                  It will only log the actions it would have taken.
+                type: boolean
+              independentDeployments:
+                description: |-
+                  IndependentDeployments defines deployments that are scaled independently.
+                  Corresponds to D_I in the model.
+                items:
+                  description: IndependentDeploymentSpec defines a deployment that
+                    is scaled on its own.
+                  properties:
+                    maxReplicas:
+                      description: MaxReplicas is the maximum number of replicas.
+                        Corresponds to M_d.
+                      format: int32
+                      type: integer
+                    minReplicas:
+                      description: MinReplicas is the minimum number of replicas.
+                        Corresponds to N_d.
+                      format: int32
+                      minimum: 0
+                      type: integer
+                    name:
+                      description: Name of the target Kubernetes Deployment.
+                      type: string
+                    namespace:
+                      description: Namespace of the target Kubernetes Deployment.
+                      type: string
+                  required:
+                  - maxReplicas
+                  - minReplicas
+                  - name
+                  - namespace
+                  type: object
+                type: array
+              stabilizationWindow:
+                description: StabilizationWindow contains settings for the anti-flapping
+                  mechanism.
+                properties:
+                  decrease:
+                    description: |-
+                      Decrease duration for the stabilization window before scaling down. E.g., "5m".
+                      Corresponds to W_dec.
+                    type: string
+                  decreaseTolerance:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: |-
+                      DecreaseTolerance is the allowed relative power fluctuation during the decrease window.
+                      Corresponds to ε_dec. Represented as a string, e.g., "0.02" for 2%.
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  increase:
+                    description: |-
+                      Increase duration for the stabilization window before scaling up. E.g., "1m", "30s".
+                      Corresponds to W_inc.
+                    type: string
+                  increaseTolerance:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: |-
+                      IncreaseTolerance is the allowed relative power fluctuation during the increase window.
+                      Corresponds to ε_inc. Represented as a string, e.g., "0.02" for 2%.
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                required:
+                - decrease
+                - decreaseTolerance
+                - increase
+                - increaseTolerance
+                type: object
+            required:
+            - deadband
+            - stabilizationWindow
+            type: object
+          status:
+            description: ElaraScalerStatus defines the observed state of ElaraScaler.
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the ElaraScaler's state.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              lastScaleTime:
+                description: LastScaleTime is the timestamp of the last successful
+                  scaling action.
+                format: date-time
+                type: string
+              mode:
+                description: |-
+                  Mode is the current state of the controller's state machine.
+                  Corresponds to 'mode'. Can be "Stable", "PendingIncrease", "PendingDecrease".
+                type: string
+              referencePower:
+                anyOf:
+                - type: integer
+                - type: string
+                description: |-
+                  ReferencePower is the last power value (in Watts) that triggered a scaling action or state reset.
+                  Corresponds to P_ref.
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
+              triggerPower:
+                anyOf:
+                - type: integer
+                - type: string
+                description: |-
+                  TriggerPower is the power value (in Watts) measured at TriggerTime.
+                  Corresponds to P_trigger.
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
+              triggerTime:
+                description: |-
+                  TriggerTime is the timestamp when the state changed to a Pending state.
+                  Corresponds to t_trigger.
+                format: date-time
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+{{- end -}}

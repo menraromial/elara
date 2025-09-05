@@ -407,16 +407,16 @@ func (r *ElaraScalerReconciler) performScaling(ctx context.Context, logger logr.
 			}
 		}
 	}
-	logger.Info("Calculated desired changes for each deployment", "deploymentChanges", deploymentChanges)
+	logger.Info("Calculated desired changes for each deployment", "deploymentChanges", formatDeploymentChangesForLog(deploymentChanges))
 
 	// 6. Apply constraints and redistribute
 	finalChanges := r.applyConstraintsAndRedistribute(logger, entities, deploymentChanges)
 
-	logger.Info("Calculated final changes after applying constraints and redistribution", "finalChanges", finalChanges)
+	logger.Info("Calculated final changes after applying constraints and redistribution", "finalChanges", formatDeploymentChangesForLog(finalChanges))
 
 	// TODO: Step 7: Apply the final scaling decisions (Patch Deployments)
 	if scaler.Spec.DryRun {
-		logger.Info("[DryRun] Skipping actual scaling of deployments.", "intendedChanges", finalChanges)
+		logger.Info("[DryRun] Skipping actual scaling of deployments.", "intendedChanges", formatDeploymentChangesForLog(finalChanges))
 	} else {
 		logger.Info("Applying scaling changes to deployments.")
 		// We'll track if any scaling operation actually happened.
@@ -731,4 +731,13 @@ func (r *ElaraScalerReconciler) applyConstraintsAndRedistribute(
 	}
 
 	return finalChanges
+}
+
+// Helper function to format map[types.NamespacedName]int for logging
+func formatDeploymentChangesForLog(changes map[types.NamespacedName]int) map[string]int {
+	loggable := make(map[string]int)
+	for k, v := range changes {
+		loggable[k.String()] = v
+	}
+	return loggable
 }
