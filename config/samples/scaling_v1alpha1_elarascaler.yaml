@@ -1,0 +1,32 @@
+apiVersion: scaling.elara.dev/v1alpha1
+kind: ElaraScaler
+metadata:
+  name: global-power-policy
+spec:
+  dryRun: false
+  deadband: "0.05" # 5%
+  stabilizationWindow:
+    increase: "1m"
+    decrease: "5m"
+    increaseTolerance: "0.02" # 2%
+    decreaseTolerance: "0.02" # 2%
+  
+  deploymentGroups:
+    - name: "backend-services"
+      members:
+        - name: "api-service"
+          namespace: "production"
+          minReplicas: 3
+          maxReplicas: 20
+          weight: 10
+        - name: "processing-worker"
+          namespace: "production"
+          minReplicas: 2
+          maxReplicas: 15
+          weight: 5
+          
+  independentDeployments:
+    - name: "frontend"
+      namespace: "production"
+      minReplicas: 2
+      maxReplicas: 10
