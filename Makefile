@@ -59,7 +59,7 @@ vet: ## Run go vet against code.
 
 .PHONY: test
 test: manifests generate fmt vet setup-envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out  -ginkgo.v
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out  -ginkgo.v 
 
 # TODO(user): To use a different vendor for e2e tests, modify the setup under 'tests/e2e'.
 # The default setup assumes Kind is pre-installed and builds/loads the Manager Docker image locally.
@@ -236,3 +236,17 @@ mv $(1) $(1)-$(3) ;\
 } ;\
 ln -sf $$(realpath $(1)-$(3)) $(1)
 endef
+
+
+.PHONY: test-ramp
+test-ramp: manifests generate
+	@echo "--- Running Scenario Test: Full-Cycle Ramp ---"
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
+	go test ./test/scenarios/... -v -ginkgo.v -ginkgo.focus="Full-Cycle Ramp" -args
+
+
+.PHONY: test-w
+test-w: manifests generate
+	@echo "--- Running Scenario Test: Weighting Effectiveness ---"
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
+	go test ./test/scenarios/... -v -args -ginkgo.v -ginkgo.focus="Weighting Effectiveness Test"
