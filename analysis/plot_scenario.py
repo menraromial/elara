@@ -67,7 +67,7 @@ def plot_simulation_results(csv_path: str, title: str, output_dir: str = "plots"
     }
     
     replica_colors = {
-        'total': '#000000',       # Black (prominent)
+        'total': "#3EF77C",       # Black (prominent)
         'deployments': ['#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', 
                        '#e377c2', '#7f7f7f', '#bcbd22', '#17becf', '#aec7e8']  # Plotly default cycle
     }
@@ -105,7 +105,7 @@ def plot_simulation_results(csv_path: str, title: str, output_dir: str = "plots"
             y=df['TotalReplicas'], 
             name='Total Replicas',
             mode='lines', 
-            line=dict(color=replica_colors['total'], width=4),
+            line=dict(color=replica_colors['total'], width=3),
             hovertemplate="<b>Total Replicas</b><br>Time: %{x}s<br>Replicas: %{y}<extra></extra>"
         ),
         secondary_y=True,
@@ -271,7 +271,7 @@ def plot_simulation_results(csv_path: str, title: str, output_dir: str = "plots"
     print(f"   - Deployment columns detected: {len(deployment_replica_columns)}")
 
     # Show the plot
-    fig.show()
+    #fig.show()
 
     return fig
 
