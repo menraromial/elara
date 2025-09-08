@@ -82,7 +82,7 @@ var _ = Describe("Scenario: Complex Plateau Test", func() {
 					{
 						Name: "web-services-group",
 						Members: []scalingv1alpha1.GroupMemberSpec{
-							{Weight: 3, DeploymentTargetSpec: scalingv1alpha1.DeploymentTargetSpec{Name: "api-gateway", Namespace: namespace, MinReplicas: 4, MaxReplicas: 10}}, // Low max
+							{Weight: 3, DeploymentTargetSpec: scalingv1alpha1.DeploymentTargetSpec{Name: "api-gateway", Namespace: namespace, MinReplicas: 4, MaxReplicas: 10}},  // Low max
 							{Weight: 2, DeploymentTargetSpec: scalingv1alpha1.DeploymentTargetSpec{Name: "frontend-web", Namespace: namespace, MinReplicas: 4, MaxReplicas: 12}}, // Low max
 						},
 					},

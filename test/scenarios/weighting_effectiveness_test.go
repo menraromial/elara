@@ -17,8 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-
-
 var _ = Describe("Scenario: Weighting Effectiveness Test", func() {
 
 	const (

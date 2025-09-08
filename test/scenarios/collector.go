@@ -81,7 +81,7 @@ func (c *Collector) ExportToCSV(filename string) error {
 
 	// Define the output directory relative to the project root.
 	// The test command is run from the root, so this path is reliable.
-	outputDir := filepath.Join("..", "..", "test_output") 
+	outputDir := filepath.Join("..", "..", "test_output")
 	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
 		return fmt.Errorf("failed to create output directory '%s': %w", outputDir, err)
 	}

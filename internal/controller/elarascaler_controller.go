@@ -377,8 +377,8 @@ func (r *ElaraScalerReconciler) performScaling(ctx context.Context, logger logr.
 	for entityName, change := range entityTargets {
 		if strings.HasPrefix(entityName, "independent/") {
 			keyStr := strings.TrimPrefix(entityName, "independent/")
-			parts := strings.Split(keyStr, "/")                              
-			key := types.NamespacedName{Namespace: parts[0], Name: parts[1]} 
+			parts := strings.Split(keyStr, "/")
+			key := types.NamespacedName{Namespace: parts[0], Name: parts[1]}
 			deploymentChanges[key] = change
 		} else if strings.HasPrefix(entityName, "group/") {
 			groupName := strings.TrimPrefix(entityName, "group/")

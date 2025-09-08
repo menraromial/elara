@@ -21,8 +21,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-
-
 var _ = Describe("Scenario: Solar Simulation Test", func() {
 
 	const (
@@ -61,9 +59,9 @@ var _ = Describe("Scenario: Solar Simulation Test", func() {
 			Spec: scalingv1alpha1.ElaraScalerSpec{
 				Deadband: resource.MustParse("0.05"), // An 5% deadband helps ignore minor noise.
 				StabilizationWindow: scalingv1alpha1.StabilizationWindowSpec{
-					Increase:          metav1.Duration{Duration: 6 * time.Second}, // Reasonably slow to ensure stability on ramp-up.
+					Increase:          metav1.Duration{Duration: 6 * time.Second},  // Reasonably slow to ensure stability on ramp-up.
 					Decrease:          metav1.Duration{Duration: 10 * time.Second}, // Slower on ramp-down to be conservative.
-					IncreaseTolerance: resource.MustParse("0.30"), // Allow 30% signal variation during the window.
+					IncreaseTolerance: resource.MustParse("0.30"),                  // Allow 30% signal variation during the window.
 					DecreaseTolerance: resource.MustParse("0.30"),
 				},
 				IndependentDeployments: []scalingv1alpha1.IndependentDeploymentSpec{

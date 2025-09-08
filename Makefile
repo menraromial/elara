@@ -267,3 +267,20 @@ test-complex: manifests generate
 	@echo "--- Running Scenario Test: Complex Plateau ---"
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
 	go test ./test/scenarios/... -v -args -ginkgo.v -ginkgo.focus="Complex Plateau Test"
+
+
+# Makefile
+# ...
+
+.PHONY: test-priority
+test-priority: manifests generate
+	@echo "--- Running Scenario Test: Priority Inversion ---"
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
+	go test ./test/scenarios/... -v -args -ginkgo.v -ginkgo.focus="Priority Inversion Test"
+
+
+.PHONY: test-noise
+test-noise: manifests generate
+	@echo "--- Running Scenario Test: High-Frequency Noise ---"
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
+	go test ./test/scenarios/... -v -args -ginkgo.v -ginkgo.focus="High-Frequency Noise Test"
