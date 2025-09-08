@@ -67,7 +67,7 @@ def plot_simulation_results(csv_path: str, title: str, output_dir: str = "plots"
     }
     
     replica_colors = {
-        'total': "#3EF77C",       # Black (prominent)
+        'total': "#085120",       # Black (prominent)
         'deployments': ['#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', 
                        '#e377c2', '#7f7f7f', '#bcbd22', '#17becf', '#aec7e8']  # Plotly default cycle
     }
@@ -302,7 +302,7 @@ Examples:
     parser.add_argument(
         "--output",
         type=str,
-        default="plots",
+        default="analysis/plots",
         help="Output directory for plot files (default: %(default)s)"
     )
 

@@ -250,3 +250,20 @@ test-w: manifests generate
 	@echo "--- Running Scenario Test: Weighting Effectiveness ---"
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
 	go test ./test/scenarios/... -v -args -ginkgo.v -ginkgo.focus="Weighting Effectiveness Test"
+
+
+.PHONY: test-solar
+test-solar: manifests generate
+	@echo "--- Running Scenario Test: Solar Simulation ---"
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
+	go test ./test/scenarios/... -v -args -ginkgo.v -ginkgo.focus="Solar Simulation Test"
+
+
+# Makefile
+# ...
+
+.PHONY: test-complex
+test-complex: manifests generate
+	@echo "--- Running Scenario Test: Complex Plateau ---"
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
+	go test ./test/scenarios/... -v -args -ginkgo.v -ginkgo.focus="Complex Plateau Test"

@@ -377,8 +377,8 @@ func (r *ElaraScalerReconciler) performScaling(ctx context.Context, logger logr.
 	for entityName, change := range entityTargets {
 		if strings.HasPrefix(entityName, "independent/") {
 			keyStr := strings.TrimPrefix(entityName, "independent/")
-			parts := strings.Split(keyStr, "/")                              // Corrected
-			key := types.NamespacedName{Namespace: parts[0], Name: parts[1]} // Corrected
+			parts := strings.Split(keyStr, "/")                              
+			key := types.NamespacedName{Namespace: parts[0], Name: parts[1]} 
 			deploymentChanges[key] = change
 		} else if strings.HasPrefix(entityName, "group/") {
 			groupName := strings.TrimPrefix(entityName, "group/")
@@ -401,8 +401,8 @@ func (r *ElaraScalerReconciler) performScaling(ctx context.Context, logger logr.
 				groupSign = -1
 			}
 			for keyStr, val := range distributedMagnitudes {
-				parts := strings.Split(keyStr, "/")                              // Corrected
-				key := types.NamespacedName{Namespace: parts[0], Name: parts[1]} // Corrected
+				parts := strings.Split(keyStr, "/")
+				key := types.NamespacedName{Namespace: parts[0], Name: parts[1]}
 				deploymentChanges[key] = val * groupSign
 			}
 		}
@@ -414,7 +414,7 @@ func (r *ElaraScalerReconciler) performScaling(ctx context.Context, logger logr.
 
 	logger.Info("Calculated final changes after applying constraints and redistribution", "finalChanges", formatDeploymentChangesForLog(finalChanges))
 
-	// TODO: Step 7: Apply the final scaling decisions (Patch Deployments)
+	// Step 7: Apply the final scaling decisions (Patch Deployments)
 	if scaler.Spec.DryRun {
 		logger.Info("[DryRun] Skipping actual scaling of deployments.", "intendedChanges", formatDeploymentChangesForLog(finalChanges))
 	} else {
