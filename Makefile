@@ -284,3 +284,10 @@ test-noise: manifests generate
 	@echo "--- Running Scenario Test: High-Frequency Noise ---"
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
 	go test ./test/scenarios/... -v -args -ginkgo.v -ginkgo.focus="High-Frequency Noise Test"
+
+
+.PHONY: test-csv
+test-csv: manifests generate
+	@echo "--- Running Scenario Test: CSV-Driven Multi-Node ---"
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
+	go test ./test/scenarios/... -v -args -ginkgo.v -ginkgo.focus="CSV-Driven Multi-Node Test"
