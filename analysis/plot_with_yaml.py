@@ -160,7 +160,7 @@ def plot_simulation_results(csv_path: str, title: str, output_dir: str = "plots"
             y=df['TotalReplicas'], 
             name='Total Replicas',
             mode='lines', 
-            line=dict(color='black', width=4),
+            line=dict(color='#085120', width=2.5),
             hovertemplate="Time: %{x:.2f}s<br>Total Replicas: %{y}<extra></extra>"
         ),
         secondary_y=True,
@@ -186,9 +186,9 @@ def plot_simulation_results(csv_path: str, title: str, output_dir: str = "plots"
 
     # --- Enhanced Controller Mode Annotations ---
     mode_colors = {
-        "Stable": "rgba(100, 100, 100, 0.1)",
-        "PendingIncrease": "rgba(255, 165, 0, 0.15)",    # Orange
-        "PendingDecrease": "rgba(0, 191, 255, 0.15)",    # Deep Sky Blue
+        "Stable": "rgba(100, 100, 100, 0.15)",
+        "PendingIncrease": "rgba(255, 165, 0, 0.25)",    # Orange
+        "PendingDecrease": "rgba(0, 191, 255, 0.25)",    # Deep Sky Blue
     }
     
     mode_labels = {
@@ -263,9 +263,9 @@ def plot_simulation_results(csv_path: str, title: str, output_dir: str = "plots"
         legend=dict(
             title="<b>Metrics</b>",
             yanchor="top",
-            y=1.02,
+            y=1,
             xanchor="left",
-            x=1.01,
+            x=1.05,
             bgcolor='rgba(255,255,255,0.8)',
             bordercolor="Black",
             borderwidth=1,
@@ -298,7 +298,7 @@ def plot_simulation_results(csv_path: str, title: str, output_dir: str = "plots"
     html_path = os.path.join(output_dir, f"{safe_title}.html")
     
     try:
-        fig.write_image(png_path, width=1920, height=1080, scale=2)
+        fig.write_image(png_path, width=1200, height=700, scale=2)
         print(f"✅ PNG plot saved to: {png_path}")
     except Exception as e:
         print(f"⚠️  Warning: Could not save PNG. Is 'kaleido' installed? ('pip install kaleido'). Error: {e}", file=sys.stderr)

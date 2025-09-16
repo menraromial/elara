@@ -1,0 +1,37 @@
+scenarioName: Ramp_Power_Test
+timestamp: 2025-09-16T11:18:21.330240576+02:00
+controller:
+    deadband: 10m
+    increaseWindow: 4s
+    decreaseWindow: 4s
+    increaseTolerance: 200m
+    decreaseTolerance: 200m
+deployments:
+    groups:
+        - name: backend-services
+          members:
+            - name: auth-service
+              weight: 3
+              minReplicas: 2
+              maxReplicas: 15
+            - name: payment-service
+              weight: 2
+              minReplicas: 2
+              maxReplicas: 10
+        - name: data-processing
+          members:
+            - name: stream-processor
+              weight: 5
+              minReplicas: 1
+              maxReplicas: 20
+            - name: batch-worker
+              weight: 1
+              minReplicas: 1
+              maxReplicas: 20
+    independent:
+        - name: caching-layer
+          minReplicas: 3
+          maxReplicas: 12
+        - name: monitoring-agent
+          minReplicas: 2
+          maxReplicas: 5

@@ -67,6 +67,11 @@ type DeploymentMetadata struct {
 	MinReplicas int32  `yaml:"minReplicas"`
 	MaxReplicas int32  `yaml:"maxReplicas"`
 }
+const (
+	filePrefix = "Many_Ramp_Power_Test"
+	sourceFile = "many_ramp_power.csv"
+)
+
 
 
 // loadPowerSignalFromCSV reads a CSV file and returns a slice of PowerSignalPoints.
@@ -114,6 +119,7 @@ var _ = Describe("Scenario: CSV-Driven Multi-Node Test", func() {
 		scenarioTimeout = time.Minute * 10
 		tickInterval    = time.Second * 2 // Should match the TimeSeconds interval in the CSV
 		namespace       = "default"
+		
 	)
 
 	It("should scale according to a power signal read from a CSV file", func(ctx SpecContext) {
@@ -121,7 +127,7 @@ var _ = Describe("Scenario: CSV-Driven Multi-Node Test", func() {
 		_, currentFile, _, ok := runtime.Caller(0)
 		Expect(ok).To(BeTrue(), "Failed to get current file path")
 		currentDir := filepath.Dir(currentFile)
-		csvFilePath := filepath.Join(currentDir, "test_data", "power_signal.csv")
+		csvFilePath := filepath.Join(currentDir, "test_data", sourceFile)
 
 		// Affiche le chemin absolu pour le débogage.
 		fmt.Printf("Attempting to load CSV from: %s\n", csvFilePath)
@@ -237,7 +243,7 @@ var _ = Describe("Scenario: CSV-Driven Multi-Node Test", func() {
 		}
 
 		By("Exporting collected data to CSV")
-		err = collector.ExportToCSV("Solar_Power_results.csv")
+		err = collector.ExportToCSV(fmt.Sprintf("%s.csv", filePrefix))
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Cleaning up resources")
@@ -292,14 +298,14 @@ func exportMetadata(scaler *scalingv1alpha1.ElaraScaler) {
 func exportMetadataAsYAML(scaler *scalingv1alpha1.ElaraScaler) {
 	outputDir := filepath.Join("..", "..", "test_output") // Relative to test execution dir
 	os.MkdirAll(outputDir, os.ModePerm)
-	scenarioName := "Solar_Power_results"
+	//scenarioName := "Solar_Power_results"
 	// Example filename: csv_driven_metadata.yaml
-	filename := fmt.Sprintf("%s_metadata.yaml", scenarioName)
+	filename := fmt.Sprintf("%s_metadata.yaml", filePrefix)
 	filePath := filepath.Join(outputDir, filename)
 
 	// Build the structured metadata object from the scaler spec
 	meta := Metadata{
-		ScenarioName: scenarioName,
+		ScenarioName: filePrefix,
 		Timestamp:    time.Now(),
 		Controller: ControllerConfig{
 			Deadband:          scaler.Spec.Deadband.String(),
